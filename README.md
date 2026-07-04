@@ -2,12 +2,19 @@
 
 A Dwarf Fortress–inspired living-world simulation that runs in the browser.
 
+**Play it online: https://mandrille.github.io/living-world/**
+
+Click **🔗 Share** to copy a link to a **shared 7-day world**: everyone who opens the same link sees the exact same world, computed deterministically from the seed and anchored to real time (no server). After seven real days the world freezes and **the Judgment** declares a winner by population, stores, and knowledge.
+
 - **Symbolic art**: the world is drawn as colored glyphs on a canvas (`@` agents, `♠` forests, `▲` mountains, `◆◇⌂▦✠⚒` buildings, `w` wolves, `☠` the dead, `∙` roads worn in by foot traffic).
 - **Hundreds of agents**: 270 founders grow into a thousand souls. Click anyone — living or dead — for a record-sheet-style character sheet: nine attributes (Physical / Social / Mental, rated in dots 1–5), skill columns with dot ratings, Health/Hunger/Renown tracks, gear with real makers and provenance, personality, beliefs, family, and a life history of everything they've done. Body parts are itemized only when wounded, scarred, or missing; sections collapse and remember their state.
 - **Family trees**: couples marry and raise children who inherit their parents' attributes and looks, come of age, and mourn their dead. Kill someone's spouse and their kin swear blood-oaths — and battlefield targeting honors the grudge.
 - **Factions, lore & politics**: procedurally generated peoples with founding myths, ethea, governments, titled leaders and succession. Gifts, insults, marriages and border disputes shift relations; wars get chronicled names ("the War of the Broken Oath"), bloody seasons become named battles, and crushing victories annex hamlets.
 - **Economy**: food/wood/stone/metal gathering, farms, houses, barracks, workshops where named smiths forge gear (masterworks become artifacts like "Ashbiter"), trade caravans between friendly powers, and hamlet expansion when settlements outgrow their halls.
-- **A dangerous world**: wolf packs stalk lone travelers; plagues sweep crowded settlements; the old die and are outlived.
+- **A dangerous world**: wolf packs stalk lone travelers; contagious diseases gnaw at organs while medics make their rounds (and cut out tumors); wildfires, earthquakes, and floods reshape the land.
+- **Research**: factions pursue warcraft (bronze → gunpowder → atomics — desperate wars can end in a nuclear sunfire that craters the map), commerce (coinage → the Grand Exchange), or science (letters → rocketry → spaceflight).
+- **Mutations**: born strange, changed by sickness, seared by the sunfire, or poisoned by glowing craters — third eyes that grant resolve, ember blood that mends flesh, contagious weeping tumors, glass bones. Effects ride the uncapped numeric attributes.
+- **Mobile-friendly**: responsive layout, touch pan / tap select / pinch zoom.
 
 ## Run
 
