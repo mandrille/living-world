@@ -1,5 +1,6 @@
 import { Sim } from './sim';
 import { Agent, Faction } from './types';
+import { W, H } from './world';
 import { bodySummary } from './body';
 import { SKILLS } from './agents';
 import { itemLabel } from './items';
@@ -29,7 +30,7 @@ export class UI {
 
     // delegation for in-panel links
     this.panel.addEventListener('click', (e) => {
-      const el = (e.target as HTMLElement).closest('[data-agent-id],[data-faction-id],[data-filter]') as HTMLElement | null;
+      const el = (e.target as HTMLElement).closest('[data-agent-id],[data-faction-id],[data-filter],[data-export],[data-fac-back]') as HTMLElement | null;
       if (!el) return;
       if (el.dataset.agentId) {
         this.sim.selectedAgentId = Number(el.dataset.agentId);
@@ -42,6 +43,9 @@ export class UI {
         this.render();
       } else if (el.dataset.export !== undefined) {
         this.exportChronicle();
+      } else if (el.dataset.facBack !== undefined) {
+        this.selectedFactionId = null;
+        this.render();
       }
     });
 
@@ -57,6 +61,12 @@ export class UI {
   }
 
   private onTile(tx: number, ty: number) {
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H) {
+      this.sim.selectedAgentId = null;
+      this.sim.selectedTile = null;
+      if (this.tab === 'inspect') this.render();
+      return;
+    }
     // living agents first
     let best: Agent | null = null;
     let bestD = Infinity;
@@ -67,6 +77,7 @@ export class UI {
     }
     if (best) {
       this.sim.selectedAgentId = best.id;
+      this.sim.selectedTile = null;
       this.setTab('inspect');
       return;
     }
@@ -74,18 +85,15 @@ export class UI {
     for (const corpse of this.sim.corpses) {
       if (Math.max(Math.abs(corpse.x - tx), Math.abs(corpse.y - ty)) <= 1) {
         this.sim.selectedAgentId = corpse.agentId;
+        this.sim.selectedTile = null;
         this.setTab('inspect');
         return;
       }
     }
-    const b = this.sim.buildingAt(tx, ty);
-    if (b) {
-      this.selectedFactionId = b.factionId;
-      this.setTab('factions');
-      return;
-    }
+    // otherwise, whatever stands (or grows) here
     this.sim.selectedAgentId = null;
-    if (this.tab === 'inspect') this.render();
+    this.sim.selectedTile = { x: tx, y: ty };
+    this.setTab('inspect');
   }
 
   render() {
@@ -142,7 +150,10 @@ export class UI {
   private renderInspect(): string {
     const a = this.sim.agents.find((x) => x.id === this.sim.selectedAgentId);
     if (!a) {
-      return `<p class="muted">Click an agent on the map to inspect them.</p>
+      if (this.sim.selectedTile) {
+        return this.renderTile(this.sim.selectedTile.x, this.sim.selectedTile.y);
+      }
+      return `<p class="muted">Click anything on the map — a person, a tree, a building — to inspect it.</p>
         <p class="muted">Drag to pan · scroll wheel to zoom.</p>
         <h3>Map key</h3>
         <table>
@@ -302,6 +313,112 @@ export class UI {
     return `<p>${parts.join('<br>')}</p>`;
   }
 
+  // ---------------- tile inspector ----------------
+
+  private renderTile(x: number, y: number): string {
+    const sim = this.sim;
+    const t = sim.tiles[y * W + x];
+    // deterministic per-tile flavor: no rng consumed, same for every visitor
+    const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    const pickH = <T,>(arr: T[], salt = 0): T => arr[(h + salt * 2654435761) % arr.length];
+
+    const b = sim.buildingAt(x, y);
+    if (b) {
+      const f = sim.factions[b.factionId];
+      const title = b.name[0].toUpperCase() + b.name.slice(1);
+      let html = `<div class="sheet-logo" style="color:${f.color}">${f.symbol} <span class="fac-name" data-faction-id="${f.id}">${f.name}</span> ${f.symbol}</div>`;
+      html += `<h2>${title}</h2>`;
+      if (b.complete) {
+        const bAge = sim.year - b.builtYear;
+        html += `<p>Raised in Year ${b.builtYear} — ${bAge <= 0 ? 'new this year, the timber still bleeding sap' : `${bAge} year${bAge > 1 ? 's' : ''} old`}.</p>`;
+      } else {
+        html += `<p class="warn">Under construction — ${Math.floor((b.progress / Math.max(1, b.workNeeded)) * 100)}% raised. ${b.progress > 0 && b.builtYear > 0 ? 'Wrecked once, being rebuilt.' : 'The frame stands open to the sky.'}</p>`;
+      }
+      const FLAVOR: Record<string, string> = {
+        hall: `The heart of ${f.settlement}. Every oath in this land was sworn under these beams.`,
+        hamlet: `A young settlement of ${f.name}. The palisade is still pale, unweathered wood.`,
+        house: pickH(['Smoke curls from the chimney.', 'Herbs dry under the eaves.', 'A dog sleeps in the doorway.', 'Someone argues inside, quietly.']),
+        farm: `They grow ${pickH(['barley', 'rye', 'turnips', 'flax', 'beans'])} here. ${pickH(['The scarecrow wears a soldier\'s old helm.', 'The rows are crooked but honest.', 'Crows watch from the fence.'])}`,
+        barracks: pickH(['Spears racked by the door, boots by the wall.', 'The training yard is packed dirt, dark in patches.']),
+        workshop: pickH(['It smells of hot metal and oak shavings.', 'The anvil rings from first light to last.']),
+      };
+      html += `<p class="muted">${FLAVOR[b.type] ?? ''}</p>`;
+      return html;
+    }
+
+    // bare terrain
+    let title = '';
+    let lines: string[] = [];
+    switch (t.terrain) {
+      case 'forest': {
+        const species = pickH(['an old oak', 'a black pine', 'a silver birch', 'a gnarled yew', 'a rowan', 'an alder', 'a hollow ash']);
+        const treeAge = 60 + (h % 340);
+        title = `Forest — ${species}`;
+        lines.push(`This one is roughly ${treeAge} years old — it was ${treeAge > sim.year ? 'here long before the first hall' : 'a sapling within living memory'}.`);
+        lines.push(`Timber left in this stand: ${t.amount}.`);
+        lines.push(pickH(['Moss thickens on the north side.', 'Something has clawed the bark, high up.', 'Initials are carved here, grown smooth with age.', 'A woodpecker works somewhere above.'], 1));
+        break;
+      }
+      case 'grass': {
+        const worn = (t.wear ?? 0) > 90;
+        title = worn ? 'A trodden road' : 'Open grassland';
+        if (worn) lines.push('Countless feet have beaten this path bare — a road that no one built and everyone made.');
+        else lines.push(pickH(['Knee-high grass, humming with insects.', 'Wildflowers here: ' + pickH(['yarrow and cornflower', 'poppies', 'clover, thick with bees'], 2) + '.', 'A hare bolts as you look.'], 1));
+        break;
+      }
+      case 'mountain': {
+        title = `Mountains — ${pickH(['grey granite', 'pale limestone', 'dark slate', 'rough gneiss'])}`;
+        lines.push(`Stone to quarry: ${t.amount}.`);
+        lines.push(pickH(['Wind whistles through the crags.', 'A cairn of stacked stones marks... something.', 'Goats watch from ledges no one can reach.'], 1));
+        break;
+      }
+      case 'ore': {
+        title = `Ore vein — ${pickH(['iron-red seams', 'green-streaked copper', 'dull grey tin'])}`;
+        lines.push(`Metal left in the vein: ${t.amount}.`);
+        lines.push('Miners\' tailings spill down the slope below.');
+        break;
+      }
+      case 'water': {
+        title = 'Deep water';
+        lines.push(pickH(['Cold, dark, and older than any faction.', 'Fish rise at dusk. The elders say the dead watch from below.', 'The surface gives back the sky and keeps its own counsel.']));
+        break;
+      }
+      case 'farmland': {
+        const crop = pickH(['barley', 'rye', 'turnips', 'flax', 'beans']);
+        title = `Field — ${crop}`;
+        lines.push(t.amount === 0
+          ? 'Stripped bare, or drowned by flood. The furrows wait for another season.'
+          : `The ${crop} crop stands ${t.amount >= 9 ? 'tall and ready' : t.amount >= 5 ? 'half-grown' : 'in first green shoots'} (${t.amount}/12).`);
+        break;
+      }
+      case 'crater': {
+        title = 'Glass crater';
+        lines.push('The ground here is fused smooth and faintly warm. Nothing grows.');
+        lines.push('<span class="bad">Those who linger are changed by it.</span>');
+        break;
+      }
+    }
+    let html = `<h2>${title}</h2>`;
+    html += `<p class="muted">at (${x}, ${y}) — near ${this.nearestSettlementLabel(x, y)}</p>`;
+    for (const l of lines) html += `<p>${l}</p>`;
+    return html;
+  }
+
+  private nearestSettlementLabel(x: number, y: number): string {
+    let best = 'no settlement at all';
+    let bd = Infinity;
+    for (const b of this.sim.buildings) {
+      if (b.type !== 'hall' && b.type !== 'hamlet') continue;
+      const d = Math.abs(b.x - x) + Math.abs(b.y - y);
+      if (d < bd) {
+        bd = d;
+        const f = this.sim.factions[b.factionId];
+        best = `${b.type === 'hall' ? f.settlement : b.name.replace('the hamlet of ', '')} (${d} tiles)`;
+      }
+    }
+    return best;
+  }
+
   private taskText(a: Agent): string {
     const t = a.task!;
     switch (t.kind) {
@@ -322,71 +439,134 @@ export class UI {
   // ---------------- factions ----------------
 
   private renderFactions(): string {
-    let html = '';
-    const live = this.sim.factions;
-    const focus = this.selectedFactionId;
+    const f = this.selectedFactionId !== null ? this.sim.factions[this.selectedFactionId] : null;
+    return f ? this.renderFactionSheet(f) : this.renderFactionRoster();
+  }
 
-    for (const f of live) {
-      const pop = this.sim.factionPop(f.id);
-      const leader = this.sim.agents.find((x) => x.id === f.leaderId);
-      const isFocus = focus === f.id;
-      html += `<h2 style="color:${f.color}">${f.symbol} ${f.name}${f.alive ? '' : ' <span class="bad">(destroyed)</span>'}</h2>`;
-      html += `<p class="muted">seat: ${f.settlement} · ${f.government} · wars won ${f.warsWon} / lost ${f.warsLost}</p>`;
-      html += `<p>Population ${pop}. Led by ${leader
-        ? `<span class="agent-link" data-agent-id="${leader.id}">${leader.name}</span>, ${f.leaderTitle}`
-        : '<span class="muted">no one — the seat is empty</span>'}.</p>`;
-      if (isFocus || live.filter((x) => x.alive).length <= 3) {
-        html += `<p><em>${f.myth}</em></p>`;
-        html += `<p>They ${f.ethos}.</p>`;
-        const members = this.sim.membersOf(f.id);
-        const roles = ['worker', 'builder', 'crafter', 'medic', 'soldier', 'child'] as const;
-        const counts = roles.map((r) => `${members.filter((m) => m.role === r).length} ${r}${r === 'child' ? 'ren' : 's'}`).join(', ');
-        html += `<p class="muted">${counts}</p>`;
-        const notables = members
-          .map((a) => ({ a, fame: this.fame(a) }))
-          .sort((x, y) => y.fame - x.fame)
-          .slice(0, 5)
-          .filter((x) => x.fame > 0);
-        if (notables.length) {
-          html += `<p>Notables: ${notables.map(({ a }) =>
-            `<span class="agent-link" data-agent-id="${a.id}">${a.name}</span> <em class="muted">${this.epithet(a)}</em>`
-          ).join(' · ')}</p>`;
-        }
-      } else {
-        html += `<p class="muted"><span class="fac-name" data-faction-id="${f.id}">lore & details…</span></p>`;
-      }
-      html += `<p>Stock: food ${Math.floor(f.stock.food)}, wood ${f.stock.wood}, stone ${f.stock.stone}, metal ${f.stock.metal}</p>`;
-
-      if (f.research.done.length > 0 || f.research.branch) {
-        const branchName = f.research.branch === 'war' ? 'the arts of war'
-          : f.research.branch === 'trade' ? 'commerce' : f.research.branch === 'science' ? 'natural philosophy' : '—';
-        html += `<p><span class="muted">Knowledge:</span> ${f.research.done.length ? f.research.done.join(', ') : 'none yet'}`;
-        if (f.alive && f.research.branch) html += ` <span class="muted">· pursuing ${branchName}</span>`;
-        html += `</p>`;
-      }
-
-      if (f.popHistory.length > 1) {
-        const blocks = '▁▂▃▄▅▆▇█';
-        const hist = f.popHistory.slice(-40);
-        const max = Math.max(...hist, 1);
-        const spark = hist.map((v) => blocks[Math.min(7, Math.floor((v / max) * 7.99))]).join('');
-        html += `<p class="muted">souls over time: <span class="good">${spark}</span> (peak ${max})</p>`;
-      }
-
-      const rels: string[] = [];
-      for (const o of live) {
-        if (o.id === f.id || !o.alive || !f.alive) continue;
-        const war = this.sim.wars.find((w) => (w.a === f.id && w.b === o.id) || (w.b === f.id && w.a === o.id));
-        if (war) {
-          rels.push(`<span class="rel-war">fighting ${war.name} against ${o.name}</span>`);
-        } else {
-          const r = relationLabel(f.relations[o.id] ?? 0);
-          rels.push(`<span class="${r.cls}">${r.label}</span> with <span class="fac-name" data-faction-id="${o.id}" style="color:${o.color}">${o.name}</span>`);
-        }
-      }
-      if (rels.length) html += `<p>${rels.join(' · ')}</p>`;
-      html += `<hr style="border:none;border-top:1px solid #2a2a38;margin:10px 0">`;
+  private renderFactionRoster(): string {
+    let html = `<h2>The Peoples of the World</h2>
+      <p class="muted">Click a people to open their sheet.</p><table>`;
+    const ranked = [...this.sim.factions].sort((a, b) => this.sim.factionScore(b) - this.sim.factionScore(a));
+    html += `<tr><th></th><th>People</th><th>Souls</th><th>Score</th></tr>`;
+    for (const f of ranked) {
+      html += `<tr>
+        <td style="color:${f.color}">${f.symbol}</td>
+        <td><span class="fac-name" data-faction-id="${f.id}" style="color:${f.color}">${f.name}</span>${f.alive ? '' : ' <span class="bad">†</span>'}</td>
+        <td>${this.sim.factionPop(f.id)}</td>
+        <td class="muted">${this.sim.factionScore(f)}</td></tr>`;
     }
+    html += `</table>`;
+    return html;
+  }
+
+  /** a people's character sheet: its ratings rise and fall with what its members do */
+  private renderFactionSheet(f: Faction): string {
+    const sim = this.sim;
+    const members = sim.membersOf(f.id);
+    const leader = sim.agentById(f.leaderId);
+    const pop = sim.factionPop(f.id);
+    const cell = (label: string, value: string) => `<td><span class="lbl">${label}</span>${value}</td>`;
+    const rate = (n: number) => `<span class="rating${n > 9 ? ' over' : ''}">${n}</span>`;
+
+    // live attributes, computed from the deeds and state of their people
+    const soldiers = members.filter((m) => m.role === 'soldier' || m.role === 'leader');
+    const avgFight = soldiers.length ? soldiers.reduce((s, m) => s + m.skills['fighting'], 0) / soldiers.length : 0;
+    const workshops = sim.buildings.filter((b) => b.factionId === f.id && b.complete && b.type === 'workshop').length;
+    const crafted = members.reduce((s, m) => s + m.crafted, 0);
+    const stock = f.stock.food + f.stock.wood + f.stock.stone + f.stock.metal;
+    const artifacts = members.reduce((s, m) => s + m.equipment.filter((i) => i.artifactName).length, 0);
+    const topFame = members.map((m) => this.fame(m)).sort((a, b) => b - a).slice(0, 3).reduce((s, v) => s + v, 0);
+    const hale = members.filter((m) => !m.disease && !m.body.some((p) => p.missing)).length;
+
+    const might = Math.round(soldiers.length / 4 + sim.techTier(f, 'war') * 2 + avgFight);
+    const craft = Math.round(workshops * 2 + members.filter((m) => m.role === 'crafter').length + crafted / 60);
+    const wealth = Math.round(stock / 60 + sim.techTier(f, 'trade') * 2);
+    const lore = f.research.done.length + sim.techTier(f, 'science');
+    const renown = Math.round(topFame / 8 + f.warsWon * 2 + artifacts);
+    const vigor = members.length ? Math.round((hale / members.length) * 10) : 0;
+
+    let html = `<p><span class="fac-name muted" data-fac-back>← all peoples</span></p>`;
+    html += `<div class="sheet-logo" style="color:${f.color}">${f.symbol} ${f.name} ${f.symbol}</div>`;
+    if (!f.alive) html += `<p class="dead-banner">† destroyed — their halls stand silent</p>`;
+    html += `<table class="sheet-grid">
+      <tr>${cell('Seat', f.settlement)}${cell('Rule', f.government)}${cell('Souls', String(pop))}</tr>
+      <tr>${cell('Leader', leader
+        ? `<span class="agent-link" data-agent-id="${leader.id}">${leader.name}</span>`
+        : '<span class="muted">none</span>')}${cell('Founded', `Year 1 (${sim.year - 1}y ago)`)}${cell('Wars', `${f.warsWon}W / ${f.warsLost}L`)}</tr>
+    </table>`;
+
+    html += `<h3 class="sheet-h">The People's Measure</h3><div class="cols">`;
+    const groups: [string, [string, number][]][] = [
+      ['Arms', [['Might', might], ['Renown', renown]]],
+      ['Hands', [['Craft', craft], ['Wealth', wealth]]],
+      ['Mind', [['Lore', lore], ['Vigor', vigor]]],
+    ];
+    for (const [g, list] of groups) {
+      html += `<div class="col"><div class="col-h">${g}</div>` +
+        list.map(([n, v]) => `<div class="stat"><span>${n}</span>${rate(v)}</div>`).join('') + `</div>`;
+    }
+    html += `</div>`;
+    html += `<p class="muted" style="font-size:11px">Might grows with soldiers' skill and war-craft · Craft with workshops and works forged (${crafted}) · Wealth with stores (${Math.floor(stock)}) · Lore with knowledge · Renown with famous deeds · Vigor with the health of the people.</p>`;
+
+    const kills = members.reduce((s, m) => s + m.kills, 0);
+    const gathered = members.reduce((s, m) => s + m.gathered, 0);
+    html += `<p><span class="muted">Deeds of the living:</span> ${kills} foes slain · ${gathered} loads hauled · ${crafted} works forged · ${artifacts} named artifact${artifacts === 1 ? '' : 's'} borne</p>`;
+
+    if (f.popHistory.length > 1) {
+      const blocks = '▁▂▃▄▅▆▇█';
+      const hist = f.popHistory.slice(-40);
+      const max = Math.max(...hist, 1);
+      const spark = hist.map((v) => blocks[Math.min(7, Math.floor((v / max) * 7.99))]).join('');
+      html += `<p class="muted">souls over time: <span class="good">${spark}</span> (peak ${max})</p>`;
+    }
+
+    // stock & knowledge
+    html += `<p>Stores: food ${Math.floor(f.stock.food)}, wood ${f.stock.wood}, stone ${f.stock.stone}, metal ${f.stock.metal}</p>`;
+    if (f.research.done.length > 0 || f.research.branch) {
+      const branchName = f.research.branch === 'war' ? 'the arts of war'
+        : f.research.branch === 'trade' ? 'commerce' : f.research.branch === 'science' ? 'natural philosophy' : '—';
+      html += `<p><span class="muted">Knowledge:</span> ${f.research.done.length ? f.research.done.join(', ') : 'none yet'}`;
+      if (f.alive && f.research.branch) html += ` <span class="muted">· pursuing ${branchName}</span>`;
+      html += `</p>`;
+    }
+
+    // standing with the others
+    const rels: string[] = [];
+    for (const o of this.sim.factions) {
+      if (o.id === f.id || !o.alive || !f.alive) continue;
+      const war = sim.wars.find((w) => (w.a === f.id && w.b === o.id) || (w.b === f.id && w.a === o.id));
+      if (war) {
+        rels.push(`<span class="rel-war">fighting ${war.name} against ${o.name}</span>`);
+      } else {
+        const r = relationLabel(f.relations[o.id] ?? 0);
+        rels.push(`<span class="${r.cls}">${r.label}</span> with <span class="fac-name" data-faction-id="${o.id}" style="color:${o.color}">${o.name}</span>`);
+      }
+    }
+    if (rels.length) html += `<p>${rels.join(' · ')}</p>`;
+
+    // notables
+    const notables = members
+      .map((a) => ({ a, fame: this.fame(a) }))
+      .sort((x, y) => y.fame - x.fame)
+      .slice(0, 5)
+      .filter((x) => x.fame > 0);
+    if (notables.length) {
+      html += `<p>Notables: ${notables.map(({ a }) =>
+        `<span class="agent-link" data-agent-id="${a.id}">${a.name}</span> <em class="muted">${this.epithet(a)}</em>`
+      ).join(' · ')}</p>`;
+    }
+
+    // what their people have done lately
+    const doings = this.sim.chronicle.filter((c) => c.text.includes(f.name)).slice(0, 6);
+    if (doings.length) {
+      html += `<details data-sec="fac-doings" open><summary>Lately, their people…</summary><div class="hist">` +
+        doings.map((c) => `<p><span class="yr">Y${c.year} ${seasonName(c.season).slice(0, 3)}</span>${c.text}</p>`).join('') +
+        `</div></details>`;
+    }
+
+    html += `<details data-sec="fac-lore"><summary>Myth & creed</summary>
+      <p><em>${f.myth}</em></p><p>They ${f.ethos}.</p></details>`;
+
     return html;
   }
 

@@ -21,6 +21,7 @@ export interface Building {
   progress: number;   // build progress 0..cost
   workNeeded: number;
   complete: boolean;
+  builtYear: number; // year completed (0 while under construction)
   name: string;
 }
 

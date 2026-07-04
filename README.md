@@ -4,7 +4,7 @@ A Dwarf Fortress–inspired living-world simulation that runs in the browser.
 
 **Play it online: https://mandrille.github.io/living-world/**
 
-Click **🔗 Share** to copy a link to a **shared 7-day world**: everyone who opens the same link sees the exact same world, computed deterministically from the seed and anchored to real time (no server). After seven real days the world freezes and **the Judgment** declares a winner by population, stores, and knowledge.
+There is **one world**, the same for everyone who opens the page — computed deterministically from the current age's seed and anchored to real time (no server). The world takes one step every 20 real seconds. Each **age lasts seven real days**; at its end **the Judgment** crowns a winner by population, stores, and knowledge, and a new age dawns. Click anything on the map — a person, a 300-year-old yew, a half-built barracks — and it will tell you about itself.
 
 - **Symbolic art**: the world is drawn as colored glyphs on a canvas (`@` agents, `♠` forests, `▲` mountains, `◆◇⌂▦✠⚒` buildings, `w` wolves, `☠` the dead, `∙` roads worn in by foot traffic).
 - **Hundreds of agents**: 270 founders grow into a thousand souls. Click anyone — living or dead — for a record-sheet-style character sheet: nine attributes (Physical / Social / Mental, rated in dots 1–5), skill columns with dot ratings, Health/Hunger/Renown tracks, gear with real makers and provenance, personality, beliefs, family, and a life history of everything they've done. Body parts are itemized only when wounded, scarred, or missing; sections collapse and remember their state.

@@ -48,6 +48,7 @@ export class Sim {
 
   terrainDirty = true;
   selectedAgentId: number | null = null;
+  selectedTile: { x: number; y: number } | null = null;
   private nextBuildingId = 1;
   private nextBeastId = 1;
   private grid = new Map<number, Agent[]>(); // coarse spatial buckets, rebuilt per tick
@@ -232,6 +233,7 @@ export class Sim {
       progress: complete ? plan.work : 0,
       workNeeded: plan.work,
       complete,
+      builtYear: complete ? this.year : 0,
       name: type === 'hall' ? `the Great Hall of ${f.settlement}`
         : type === 'hamlet' ? `the hamlet of ${settlementName()}`
         : `a ${type} in ${f.settlement}`,
@@ -818,6 +820,7 @@ export class Sim {
         gainXp(a, 'building', 2);
         if (b.progress >= b.workNeeded) {
           b.complete = true;
+          if (b.builtYear === 0) b.builtYear = this.year; // repairs keep the original year
           a.built++;
           this.terrainDirty = true;
           this.hist(a, `Set the last beam of ${b.name} with their own hands.`);
@@ -1830,6 +1833,7 @@ export class Sim {
       for (const a of this.agents) this.agentMap.set(a.id, a);
       this.popCache = [];
       this.buildings = d.buildings;
+      for (const b of this.buildings) b.builtYear = b.builtYear ?? 1;
       this.wars = d.wars;
       for (const w of this.wars) w.name = w.name ?? warName();
       this.corpses = d.corpses;

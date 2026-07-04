@@ -369,6 +369,11 @@ export class Renderer {
         c.lineWidth = 1.5;
         c.strokeRect(a.x * s - ox - 1, a.y * s - oy - 1, s + 2, s + 2);
       }
+    } else if (this.sim.selectedTile) {
+      const st = this.sim.selectedTile;
+      c.strokeStyle = '#e8d9a0';
+      c.lineWidth = 1.5;
+      c.strokeRect(st.x * s - ox, st.y * s - oy, s, s);
     }
 
     this.drawHoverLabel(ox, oy, s);

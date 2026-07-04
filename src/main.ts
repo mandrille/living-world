@@ -2,29 +2,27 @@ import { Sim } from './sim';
 import { Renderer } from './render';
 import { UI } from './ui';
 import { setSeed } from './rng';
-import { Faction } from './types';
 
-// ---- world parameters from the URL ----
-// local sandbox:   ?seed=12345
-// shared 7-day world: ?world=12345&start=1730000000000  (same link = same world for everyone)
-const params = new URLSearchParams(location.search);
-const sharedSeed = Number(params.get('world'));
-const sharedStart = Number(params.get('start'));
-const SHARED = Number.isFinite(sharedSeed) && sharedSeed > 0 && Number.isFinite(sharedStart) && sharedStart > 0;
-
-const TICK_MS = 20_000; // one shared-world tick per 20 real seconds
+// ============================================================
+// ONE WORLD. Everyone who opens this page sees the same world,
+// computed deterministically from the age's seed and anchored
+// to the real clock. Each age lasts seven real days, ends in
+// the Judgment, and a new age begins by itself.
+// ============================================================
+const BASE_SEED = 20260704;
+const WORLD_START = 1783123200000; // 2026-07-04T00:00:00Z — the first dawn of age 1
+const TICK_MS = 20_000; // the world takes one step every 20 real seconds
 const WEEK_MS = 7 * 24 * 3600 * 1000;
-const TOTAL_TICKS = Math.floor(WEEK_MS / TICK_MS); // 30,240 ticks ≈ 75 sim-years
+const TOTAL_TICKS = Math.floor(WEEK_MS / TICK_MS); // 30,240 ticks ≈ 75 sim-years per age
 
-let seed: number;
-if (SHARED) {
-  seed = sharedSeed;
-} else {
-  seed = Number(params.get('seed'));
-  if (!Number.isFinite(seed) || seed <= 0) {
-    seed = 1 + Math.floor(Math.random() * 2147483646);
-  }
-}
+// dev override: ?seed=N runs a private sandbox at a gentle fixed pace
+const params = new URLSearchParams(location.search);
+const devSeed = Number(params.get('seed'));
+const SANDBOX = Number.isFinite(devSeed) && devSeed > 0;
+
+const age = SANDBOX ? 0 : Math.max(0, Math.floor((Date.now() - WORLD_START) / WEEK_MS));
+const ageStart = WORLD_START + age * WEEK_MS;
+const seed = SANDBOX ? devSeed : BASE_SEED + age * 7919;
 setSeed(seed);
 
 const sim = new Sim();
@@ -42,6 +40,9 @@ const overlay = document.getElementById('overlay')!;
 const overlayContent = document.getElementById('overlay-content')!;
 const countdownEl = document.getElementById('countdown')!;
 
+let judged = false;
+const paused = () => judged;
+
 function updateHud() {
   dateEl.textContent = sim.dateString();
   popEl.textContent = `☺ ${sim.livingCount()} souls · ${sim.wars.length} war(s)`;
@@ -49,11 +50,7 @@ function updateHud() {
 
 document.getElementById('btn-zoom-in')!.addEventListener('click', () => renderer.zoomCenter(1.3));
 document.getElementById('btn-zoom-out')!.addEventListener('click', () => renderer.zoomCenter(1 / 1.3));
-document.getElementById('seed')!.textContent = SHARED ? `world ${seed}` : `seed ${seed}`;
-document.getElementById('btn-new')!.addEventListener('click', () => {
-  const s = 1 + Math.floor(Math.random() * 2147483646);
-  location.search = SHARED ? `?world=${s}&start=${Date.now()}` : `?seed=${s}`;
-});
+document.getElementById('seed')!.textContent = SANDBOX ? `sandbox ${seed}` : `age ${age + 1}`;
 
 const flash = (btn: HTMLElement, text: string) => {
   const old = btn.textContent;
@@ -61,45 +58,15 @@ const flash = (btn: HTMLElement, text: string) => {
   setTimeout(() => { btn.textContent = old; }, 1800);
 };
 
-// ---- sharing: hand the same world to someone else ----
+// share: the world is the same for everyone, so the plain link is enough
 const shareBtn = document.getElementById('btn-share')!;
 shareBtn.addEventListener('click', () => {
-  const url = SHARED
-    ? location.href
-    : `${location.origin}${location.pathname}?world=${seed}&start=${Date.now()}`;
+  const url = `${location.origin}${location.pathname}`;
   navigator.clipboard.writeText(url).then(
-    () => flash(shareBtn, SHARED ? '✓ link copied' : '✓ 7-day world link copied'),
-    () => flash(shareBtn, url.slice(0, 24) + '…') // clipboard blocked: at least show it
+    () => flash(shareBtn, '✓ link copied'),
+    () => flash(shareBtn, url.slice(0, 24) + '…')
   );
 });
-
-// ---- save/load: local sandbox only ----
-const SAVE_KEY = 'simulation-save';
-const saveBtn = document.getElementById('btn-save')!;
-const loadBtn = document.getElementById('btn-load')!;
-if (SHARED) {
-  saveBtn.style.display = 'none';
-  loadBtn.style.display = 'none';
-} else {
-  saveBtn.addEventListener('click', () => {
-    try {
-      localStorage.setItem(SAVE_KEY, sim.serialize());
-      flash(saveBtn, '✓ saved');
-    } catch {
-      flash(saveBtn, '✗ too large');
-    }
-  });
-  loadBtn.addEventListener('click', () => {
-    const data = localStorage.getItem(SAVE_KEY);
-    if (!data || !sim.loadFrom(data)) {
-      flash(loadBtn, '✗ no save');
-      return;
-    }
-    renderer.dirty = true;
-    ui.render();
-    flash(loadBtn, '✓ loaded');
-  });
-}
 
 // ---- render loop (a draw error must never kill it) ----
 function frame() {
@@ -119,52 +86,26 @@ setInterval(() => {
 }, 1800);
 
 // ============================================================
-// LOCAL SANDBOX MODE
+// DEV SANDBOX: gentle fixed pace, no judgment
 // ============================================================
-let speed = 1;
-let judged = false;
-
-function paused(): boolean {
-  return SHARED ? judged : speed === 0;
-}
-
-if (!SHARED) {
+if (SANDBOX) {
   countdownEl.style.display = 'none';
-  const speedButtons: Record<string, number> = {
-    'btn-pause': 0, 'btn-1x': 1, 'btn-3x': 3, 'btn-10x': 10,
-  };
-  for (const [id, s] of Object.entries(speedButtons)) {
-    document.getElementById(id)!.addEventListener('click', () => {
-      speed = s;
-      for (const other of Object.keys(speedButtons)) {
-        document.getElementById(other)!.classList.toggle('active', other === id);
-      }
-    });
-  }
   setInterval(() => {
-    if (speed > 0) {
-      for (let i = 0; i < speed; i++) sim.tick();
-      renderer.dirty = true;
-    }
+    sim.tick();
+    renderer.dirty = true;
     updateHud();
-  }, 100);
+  }, 500);
 }
 
 // ============================================================
-// SHARED WEEK-WORLD MODE
+// THE ONE WORLD
 // ============================================================
-if (SHARED) {
-  // the pace is the world's, not ours
-  for (const id of ['btn-pause', 'btn-1x', 'btn-3x', 'btn-10x']) {
-    document.getElementById(id)!.style.display = 'none';
-  }
-  countdownEl.style.display = '';
-
+if (!SANDBOX) {
   const expectedTicks = () =>
-    Math.max(0, Math.min(TOTAL_TICKS, Math.floor((Date.now() - sharedStart) / TICK_MS)));
+    Math.max(0, Math.min(TOTAL_TICKS, Math.floor((Date.now() - ageStart) / TICK_MS)));
 
   const updateCountdown = () => {
-    const left = sharedStart + WEEK_MS - Date.now();
+    const left = ageStart + WEEK_MS - Date.now();
     if (left <= 0) {
       countdownEl.textContent = '⌛ the Judgment has come';
       return;
@@ -172,7 +113,7 @@ if (SHARED) {
     const d = Math.floor(left / 86400000);
     const h = Math.floor((left % 86400000) / 3600000);
     const m = Math.floor((left % 3600000) / 60000);
-    countdownEl.textContent = `⌛ Judgment in ${d}d ${h}h ${m}m`;
+    countdownEl.textContent = `⌛ the age ends in ${d}d ${h}h ${m}m`;
   };
 
   const judge = () => {
@@ -183,9 +124,9 @@ if (SHARED) {
       .sort((a, b) => b.score - a.score);
     const winner = ranked[0];
 
-    sim.log('misc', `⚖ The Age ends after seven days of the watchers' time. ${winner.f.name} stands above all.`);
+    sim.log('misc', `⚖ The age ends after seven days of the watchers' time. ${winner.f.name} stands above all.`);
 
-    let html = `<h1>The Judgment</h1>`;
+    let html = `<h1>The Judgment of Age ${age + 1}</h1>`;
     html += `<p class="winner">☼ ${winner.f.symbol} ${winner.f.name} claims the age ☼</p>`;
     html += `<table><tr><th></th><th>People</th><th>Souls</th><th>Stores</th><th class="score">Score</th></tr>`;
     for (const { f, score } of ranked) {
@@ -197,12 +138,16 @@ if (SHARED) {
         <td class="score">${score}</td></tr>`;
     }
     html += `</table>`;
-    html += `<p class="muted">Souls ×10 + stores + knowledge. The world is frozen now; walk it as long as you like.</p>`;
+    html += `<p class="muted">Souls ×10 + stores + knowledge. This world is frozen now; walk it as long as you like.</p>`;
+    const nextReady = Date.now() >= ageStart + WEEK_MS;
     html += `<button id="btn-close-overlay">Walk the silent world</button>`;
+    if (nextReady) html += `<button id="btn-next-age">Begin Age ${age + 2} ⟶</button>`;
     overlayContent.innerHTML = html;
     overlay.classList.remove('hidden');
     document.getElementById('btn-close-overlay')!.addEventListener('click', () => overlay.classList.add('hidden'));
+    document.getElementById('btn-next-age')?.addEventListener('click', () => location.reload());
   };
+  (window as any).__judge = judge;
 
   // catch up to where the world really is, in digestible slices
   const catchUp = (onDone: () => void) => {
@@ -215,8 +160,7 @@ if (SHARED) {
     const msg = document.getElementById('catchup-msg')!;
     const bar = document.getElementById('catchup-bar')!;
     const step = () => {
-      // large slices: hidden tabs throttle timers to one callback per second,
-      // so each slice must carry real weight
+      // large slices: hidden tabs throttle timers to one callback per second
       const t0 = performance.now();
       while (sim.tickCount < target && performance.now() - t0 < 150) sim.tick();
       msg.textContent = `…the events of Year ${sim.year}…`;
@@ -232,8 +176,6 @@ if (SHARED) {
     };
     step();
   };
-
-  (window as any).__judge = judge; // for testing the verdict screen
 
   catchUp(() => {
     updateCountdown();
