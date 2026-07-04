@@ -11,9 +11,9 @@ import { setSeed } from './rng';
 // ============================================================
 const BASE_SEED = 20260704;
 const WORLD_START = 1783123200000; // 2026-07-04T00:00:00Z — the first dawn of age 1
-const TICK_MS = 20_000; // the world takes one step every 20 real seconds
+const TICK_MS = 10_000; // the world takes one step every 10 real seconds
 const WEEK_MS = 7 * 24 * 3600 * 1000;
-const TOTAL_TICKS = Math.floor(WEEK_MS / TICK_MS); // 30,240 ticks ≈ 75 sim-years per age
+const TOTAL_TICKS = Math.floor(WEEK_MS / TICK_MS); // 60,480 ticks ≈ 151 sim-years per age
 
 // dev override: ?seed=N runs a private sandbox at a gentle fixed pace
 const params = new URLSearchParams(location.search);
@@ -84,6 +84,10 @@ frame();
 setInterval(() => {
   if (!paused()) ui.render();
 }, 1800);
+
+// the life layer: keep redrawing so smoke drifts and the crowd sways
+// (purely cosmetic — the simulation itself only steps on its clock)
+setInterval(() => { renderer.dirty = true; }, 120);
 
 // ============================================================
 // DEV SANDBOX: gentle fixed pace, no judgment
@@ -180,7 +184,7 @@ if (!SANDBOX) {
   catchUp(() => {
     updateCountdown();
     if (expectedTicks() >= TOTAL_TICKS) judge();
-    setInterval(() => {
+    const liveStep = () => {
       const target = expectedTicks();
       let n = 0;
       while (sim.tickCount < target && n < 200) { sim.tick(); n++; }
@@ -188,7 +192,15 @@ if (!SANDBOX) {
       updateHud();
       updateCountdown();
       if (target >= TOTAL_TICKS) judge();
-    }, 1000);
+    };
+    setInterval(liveStep, 1000);
+    // coming back to a backgrounded tab: catch up on the spot
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        liveStep();
+        renderer.dirty = true;
+      }
+    });
   });
 }
 

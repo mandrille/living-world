@@ -37,6 +37,9 @@ export class Renderer {
   private mctx: CanvasRenderingContext2D;
   private minibase: HTMLCanvasElement;
   private lastMinimapDraw = 0;
+  // cosmetic life: hearth smoke and swaying figures (never touches the seeded rng)
+  private particles: { x: number; y: number; vx: number; vy: number; life: number; max: number }[] = [];
+  private lastFrameTime = performance.now();
 
   constructor(private canvas: HTMLCanvasElement, private sim: Sim) {
     this.ctx = canvas.getContext('2d')!;
@@ -304,6 +307,9 @@ export class Renderer {
     if (this.sim.terrainDirty || this.builtZoom !== this.zoom) this.redrawTerrain();
     const c = this.ctx;
     const { ox, oy, s } = this.view();
+    const now = performance.now();
+    const dt = Math.min(0.25, (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
 
@@ -336,7 +342,7 @@ export class Renderer {
       const sx = b.x * s - ox + s / 2;
       const sy = b.y * s - oy + s / 2;
       if (sx < -s || sy < -s || sx > this.canvas.width + s || sy > this.canvas.height + s) continue;
-      c.fillText('w', sx, sy + 1);
+      c.fillText('w', sx + Math.sin(now / 1100 + b.id * 2.1) * s * 0.05, sy + 1);
     }
 
     // the living (children drawn smaller, in a second pass)
@@ -351,13 +357,19 @@ export class Renderer {
       const f = this.sim.factions[a.factionId];
       const glyph = a.role === 'leader' ? 'Ω' : a.role === 'soldier' ? '†' : '@';
       c.fillStyle = f.color;
-      c.fillText(glyph, sx, sy + 1);
+      // a gentle sway keeps the crowd looking alive between world-steps
+      c.fillText(glyph,
+        sx + Math.sin(now / 1400 + a.id * 0.9) * s * 0.04,
+        sy + 1 + Math.sin(now / 900 + a.id * 1.7) * s * 0.05);
     }
     if (children.length) {
       c.font = `bold ${Math.max(6, Math.ceil(s * 0.65))}px Consolas, monospace`;
       for (const a of children) {
         c.fillStyle = this.sim.factions[a.factionId].color;
-        c.fillText('@', a.x * s - ox + s / 2, a.y * s - oy + s / 2 + 1);
+        // children fidget more than their elders
+        c.fillText('@',
+          a.x * s - ox + s / 2 + Math.sin(now / 450 + a.id) * s * 0.08,
+          a.y * s - oy + s / 2 + 1 + Math.sin(now / 550 + a.id * 1.3) * s * 0.06);
       }
     }
 
@@ -376,8 +388,51 @@ export class Renderer {
       c.strokeRect(st.x * s - ox, st.y * s - oy, s, s);
     }
 
+    this.drawSmoke(ox, oy, s, now, dt);
     this.drawHoverLabel(ox, oy, s);
     this.drawMinimap(ox, oy, s);
+  }
+
+  /** hearth smoke rising from lived-in roofs; purely cosmetic */
+  private drawSmoke(ox: number, oy: number, s: number, now: number, dt: number) {
+    const c = this.ctx;
+    if (this.particles.length < 140) {
+      for (const b of this.sim.buildings) {
+        if (!b.complete) continue;
+        if (b.type !== 'hall' && b.type !== 'hamlet' && b.type !== 'house' && b.type !== 'workshop') continue;
+        const sx = b.x * s - ox;
+        const sy = b.y * s - oy;
+        if (sx < -s || sy < -s || sx > this.canvas.width + s || sy > this.canvas.height + s) continue;
+        if (Math.random() < dt * (b.type === 'workshop' ? 0.9 : 0.3)) {
+          this.particles.push({
+            x: b.x + 0.35 + Math.random() * 0.3,
+            y: b.y + 0.1,
+            vx: (Math.random() - 0.5) * 0.04,
+            vy: -0.22 - Math.random() * 0.12,
+            life: 0,
+            max: 3.5 + Math.random() * 2.5,
+          });
+        }
+      }
+    }
+    const wind = Math.sin(now / 6000) * 0.06;
+    c.save();
+    c.fillStyle = '#a8a8b2';
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life += dt;
+      if (p.life >= p.max) { this.particles.splice(i, 1); continue; }
+      p.x += (p.vx + wind) * dt;
+      p.y += p.vy * dt;
+      const px = p.x * s - ox;
+      const py = p.y * s - oy;
+      if (px < -12 || py < -12 || px > this.canvas.width + 12) { this.particles.splice(i, 1); continue; }
+      const t01 = p.life / p.max;
+      c.globalAlpha = 0.32 * (1 - t01);
+      const sz = Math.max(1.5, s * (0.10 + t01 * 0.14));
+      c.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+    }
+    c.restore();
   }
 
   private drawMinimap(ox: number, oy: number, s: number) {
