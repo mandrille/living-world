@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Simulation — a living world</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="topbar">
+        <span id="date" class="hud"></span>
+        <span id="pop" class="hud"></span>
+        <span id="seed" class="hud muted-hud"></span>
+        <span id="countdown" class="hud" style="display:none"></span>
+        <button id="btn-new" class="speed" title="generate a new world">⟳ New World</button>
+        <button id="btn-share" class="speed" title="copy a link to a shared 7-day world">🔗 Share</button>
+        <button id="btn-save" class="speed" title="save this world in the browser">💾 Save</button>
+        <button id="btn-load" class="speed" title="load the saved world">📂 Load</button>
+        <span class="spacer"></span>
+        <button id="btn-zoom-out" class="speed" title="zoom out">−</button>
+        <button id="btn-zoom-in" class="speed" title="zoom in">+</button>
+        <span style="width:12px"></span>
+        <button id="btn-pause" class="speed">⏸</button>
+        <button id="btn-1x" class="speed active">1×</button>
+        <button id="btn-3x" class="speed">3×</button>
+        <button id="btn-10x" class="speed">10×</button>
+      </div>
+      <div id="main">
+        <div id="canvas-wrap">
+          <canvas id="world"></canvas>
+          <canvas id="minimap" width="180" height="120"></canvas>
+        </div>
+        <div id="sidebar">
+          <div id="tabs">
+            <button class="tab active" data-tab="inspect">Inspect</button>
+            <button class="tab" data-tab="factions">Factions</button>
+            <button class="tab" data-tab="legends">Legends</button>
+            <button class="tab" data-tab="chronicle">Chronicle</button>
+          </div>
+          <div id="panel"></div>
+        </div>
+      </div>
+    </div>
+    <div id="overlay" class="hidden">
+      <div id="overlay-content"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
