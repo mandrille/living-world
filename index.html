@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Simulation — a living world</title>
+    <script type="module" crossorigin src="./assets/index-tjyOFr3o.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DT-MKOUg.css">
+  </head>
+  <body>
+    <div id="app">
+      <div id="topbar">
+        <span id="date" class="hud"></span>
+        <span id="pop" class="hud"></span>
+        <span id="seed" class="hud muted-hud"></span>
+        <span id="countdown" class="hud"></span>
+        <button id="btn-share" class="speed" title="copy the link — same world for everyone">🔗 Share</button>
+        <span class="spacer"></span>
+        <button id="btn-zoom-out" class="speed" title="zoom out">−</button>
+        <button id="btn-zoom-in" class="speed" title="zoom in">+</button>
+      </div>
+      <div id="main">
+        <div id="canvas-wrap">
+          <canvas id="world"></canvas>
+          <canvas id="minimap" width="180" height="120"></canvas>
+        </div>
+        <div id="sidebar">
+          <div id="tabs">
+            <button class="tab active" data-tab="inspect">Inspect</button>
+            <button class="tab" data-tab="factions">Factions</button>
+            <button class="tab" data-tab="legends">Legends</button>
+            <button class="tab" data-tab="chronicle">Chronicle</button>
+          </div>
+          <div id="panel"></div>
+        </div>
+      </div>
+    </div>
+    <div id="overlay" class="hidden">
+      <div id="overlay-content"></div>
+    </div>
+  </body>
+</html>
