@@ -1855,7 +1855,7 @@ export class Sim {
 
   serialize(): string {
     return JSON.stringify({
-      v: 4, // v4 adds the RNG state: without it a resumed world drifts from a replayed one
+      v: 5, // v5: Spanish names & inherited surnames (v4 adds the RNG state)
       rngState: getRngState(),
       tiles: this.tiles,
       factions: this.factions,
@@ -1878,7 +1878,7 @@ export class Sim {
   loadFrom(json: string): boolean {
     try {
       const d = JSON.parse(json);
-      if (!d || d.v !== 4 || typeof d.rngState !== 'number') return false;
+      if (!d || d.v !== 5 || typeof d.rngState !== 'number') return false;
       this.tiles = d.tiles;
       this.factions = d.factions;
       for (const f of this.factions) f.popHistory = f.popHistory ?? [];

@@ -276,6 +276,8 @@ if (!SANDBOX) {
     if (best) {
       sim.loadFrom(best.state); // on any mismatch this returns false and we replay from tick 0
       ui.render();
+      updateHud();
+      renderer.dirty = true;
     }
 
     catchUp(() => {
