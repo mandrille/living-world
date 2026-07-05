@@ -4,7 +4,7 @@ A Dwarf Fortress–inspired living-world simulation that runs in the browser.
 
 **Play it online: https://mandrille.github.io/living-world/**
 
-There is **one world**, the same for everyone who opens the page — computed deterministically from the current age's seed and anchored to real time (no server). The world takes one step every 10 real seconds. Each **age lasts seven real days**; at its end **the Judgment** crowns a winner by population, stores, and knowledge, and a new age dawns. Click anything on the map — a person, a 300-year-old yew, a half-built barracks — and it will tell you about itself.
+There is **one world**, the same for everyone who opens the page — computed deterministically from the current age's seed and anchored to real time (no server). The world beats twice a second (pace changes are anchored as speed epochs in `src/config.ts`, so a running age never rewinds). Each **age lasts seven real days**; at its end **the Judgment** crowns a winner by population, stores, and knowledge, and a new age dawns. Click anything on the map — a person, a 300-year-old yew, a half-built barracks — and it will tell you about itself.
 
 The world's history draws exclusively from a seeded RNG, so every visitor replays the exact same events. Your browser caches a snapshot in IndexedDB: after the first visit, opening the page only simulates the time since you last looked. The interface is bilingual — an **EN/ES** button in the top bar switches the whole UI *and* every generated chronicle line, life story, myth, and item between English and Spanish at any time (the world state itself is language-neutral).
 

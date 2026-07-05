@@ -17,7 +17,7 @@ import { loadSnapshot, saveSnapshot } from './store';
 // (see scripts/build-snapshot.ts). Either way only the time
 // since that snapshot gets simulated.
 // ============================================================
-import { WEEK_MS, TICK_MS, TOTAL_TICKS, ageAt, ageStartOf, seedOf, expectedTicksAt } from './config';
+import { WEEK_MS, TICK_MS, totalTicksOf, ageAt, ageStartOf, seedOf, expectedTicksAt } from './config';
 
 const SAVE_EVERY_MS = 3 * 60_000;
 // skip the network when the local cache is at most this far behind
@@ -31,6 +31,7 @@ const SANDBOX = Number.isFinite(devSeed) && devSeed > 0;
 
 const age = SANDBOX ? 0 : ageAt(Date.now());
 const ageStart = ageStartOf(age);
+const AGE_TICKS = totalTicksOf(age);
 const seed = SANDBOX ? devSeed : seedOf(age);
 initLang();
 setSeed(seed);
@@ -307,7 +308,7 @@ if (!SANDBOX) {
       void persist(true);
       updateCountdown();
       logStandings('caught up with the world');
-      if (expectedTicks() >= TOTAL_TICKS) judge();
+      if (expectedTicks() >= AGE_TICKS) judge();
       const liveStep = () => {
         const target = expectedTicks();
         let n = 0;
@@ -317,7 +318,7 @@ if (!SANDBOX) {
         updateCountdown();
         void persist();
         logStandings('the year turns');
-        if (target >= TOTAL_TICKS) judge();
+        if (target >= AGE_TICKS) judge();
       };
       setInterval(liveStep, 1000);
       // coming back to a backgrounded tab: catch up on the spot
