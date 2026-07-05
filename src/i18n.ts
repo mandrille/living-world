@@ -28,9 +28,7 @@ export function initLang() {
   } catch {
     /* storage may be unavailable; keep default */
   }
-  if (typeof navigator !== 'undefined' && (navigator.language || '').toLowerCase().startsWith('es')) {
-    lang = 'es';
-  }
+  lang = 'es'; // the house language — English is one click away
 }
 
 export function getLang(): Lang {
