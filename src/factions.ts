@@ -22,6 +22,7 @@ export function makeFaction(id: number, hallX: number, hallY: number): Faction {
     stock: { food: 60, wood: 30, stone: 10, metal: 0 },
     relations: {},
     popHistory: [],
+    scoreHistory: [],
     research: { branch: null, progress: 0, done: [] },
     alive: true,
     warsWon: 0,

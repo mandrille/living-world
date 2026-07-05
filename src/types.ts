@@ -188,6 +188,7 @@ export interface Faction {
   stock: Record<ResourceKind, number>;
   relations: Record<number, number>; // -100..100 with other factions
   popHistory: number[]; // one entry per year
+  scoreHistory: number[]; // one entry per year — the Judgment score over time
   research: Research;
   alive: boolean;
   warsWon: number;
