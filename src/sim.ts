@@ -1857,7 +1857,7 @@ export class Sim {
 
   serialize(): string {
     return JSON.stringify({
-      v: 6, // v6: per-year score history (v5: Spanish names; v4: RNG state)
+      v: 7, // v7: fixed faction names (v6: score history; v5: Spanish names; v4: RNG state)
       rngState: getRngState(),
       tiles: this.tiles,
       factions: this.factions,
@@ -1880,7 +1880,7 @@ export class Sim {
   loadFrom(json: string): boolean {
     try {
       const d = JSON.parse(json);
-      if (!d || d.v !== 6 || typeof d.rngState !== 'number') return false;
+      if (!d || d.v !== 7 || typeof d.rngState !== 'number') return false;
       this.tiles = d.tiles;
       this.factions = d.factions;
       for (const f of this.factions) {
