@@ -340,8 +340,9 @@ export class Renderer {
     c.font = `${Math.ceil(s)}px Consolas, monospace`;
     c.fillStyle = '#9a8f8f';
     for (const b of this.sim.beasts) {
-      const sx = b.x * s - ox + s / 2;
-      const sy = b.y * s - oy + s / 2;
+      const p = this.smoothPos(-b.id, b.x, b.y, now);
+      const sx = p.x * s - ox + s / 2;
+      const sy = p.y * s - oy + s / 2;
       if (sx < -s || sy < -s || sx > this.canvas.width + s || sy > this.canvas.height + s) continue;
       c.fillText('w', sx + Math.sin(now / 1100 + b.id * 2.1) * s * 0.05, sy + 1);
     }
@@ -351,8 +352,9 @@ export class Renderer {
     c.font = `bold ${Math.ceil(s) + 1}px Consolas, monospace`;
     for (const a of this.sim.agents) {
       if (!a.alive) continue;
-      const sx = a.x * s - ox + s / 2;
-      const sy = a.y * s - oy + s / 2;
+      const p = this.smoothPos(a.id, a.x, a.y, now);
+      const sx = p.x * s - ox + s / 2;
+      const sy = p.y * s - oy + s / 2;
       if (sx < -s || sy < -s || sx > this.canvas.width + s || sy > this.canvas.height + s) continue;
       if (a.role === 'child') { children.push(a); continue; }
       const f = this.sim.factions[a.factionId];
@@ -367,10 +369,11 @@ export class Renderer {
       c.font = `bold ${Math.max(6, Math.ceil(s * 0.65))}px Consolas, monospace`;
       for (const a of children) {
         c.fillStyle = this.sim.factions[a.factionId].color;
+        const p = this.smoothPos(a.id, a.x, a.y, now);
         // children fidget more than their elders
         c.fillText('@',
-          a.x * s - ox + s / 2 + Math.sin(now / 450 + a.id) * s * 0.08,
-          a.y * s - oy + s / 2 + 1 + Math.sin(now / 550 + a.id * 1.3) * s * 0.06);
+          p.x * s - ox + s / 2 + Math.sin(now / 450 + a.id) * s * 0.08,
+          p.y * s - oy + s / 2 + 1 + Math.sin(now / 550 + a.id * 1.3) * s * 0.06);
       }
     }
 
@@ -378,9 +381,10 @@ export class Renderer {
     if (this.sim.selectedAgentId !== null) {
       const a = this.sim.agents.find((x) => x.id === this.sim.selectedAgentId);
       if (a && a.alive) {
+        const p = this.smoothPos(a.id, a.x, a.y, now);
         c.strokeStyle = '#ffffff';
         c.lineWidth = 1.5;
-        c.strokeRect(a.x * s - ox - 1, a.y * s - oy - 1, s + 2, s + 2);
+        c.strokeRect(p.x * s - ox - 1, p.y * s - oy - 1, s + 2, s + 2);
       }
     } else if (this.sim.selectedTile) {
       const st = this.sim.selectedTile;
@@ -480,6 +484,35 @@ export class Renderer {
     m.strokeStyle = '#ffffff';
     m.lineWidth = 1;
     m.strokeRect(rx + 0.5, ry + 0.5, Math.min(rw, mw - 1), Math.min(rh, mh - 1));
+  }
+
+  // ---- movement smoothing: glyphs glide between tiles instead of snapping ----
+  private anim = new Map<number, { fx: number; fy: number; tx: number; ty: number; start: number }>();
+  private static readonly GLIDE_MS = 420;
+
+  private smoothPos(key: number, x: number, y: number, now: number): { x: number; y: number } {
+    if (this.anim.size > 6000) this.anim.clear(); // long-dead ids accumulate; a rare clear only costs one frame of glide
+    let a = this.anim.get(key);
+    if (!a) {
+      a = { fx: x, fy: y, tx: x, ty: y, start: 0 };
+      this.anim.set(key, a);
+    }
+    if (a.tx !== x || a.ty !== y) {
+      // start the new glide from wherever the glyph is drawn right now
+      const p = Math.min(1, (now - a.start) / Renderer.GLIDE_MS);
+      a.fx = a.fx + (a.tx - a.fx) * p;
+      a.fy = a.fy + (a.ty - a.fy) * p;
+      if (Math.abs(x - a.tx) > 3 || Math.abs(y - a.ty) > 3) {
+        // catch-up bursts move people many tiles at once — just snap
+        a.fx = x;
+        a.fy = y;
+      }
+      a.tx = x;
+      a.ty = y;
+      a.start = now;
+    }
+    const p = Math.min(1, (now - a.start) / Renderer.GLIDE_MS);
+    return { x: a.fx + (a.tx - a.fx) * p, y: a.fy + (a.ty - a.fy) * p };
   }
 
   private drawHoverLabel(ox: number, oy: number, s: number) {
