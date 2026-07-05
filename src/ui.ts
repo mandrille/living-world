@@ -137,6 +137,15 @@ export class UI {
     return t('Year {y}, {s} — day {d}', { y: this.sim.year, s: t(seasonName(this.sim.season)), d: this.sim.day });
   }
 
+  /** unicode block sparkline of the last `n` values */
+  private spark(values: number[], n = 40): string {
+    const blocks = '▁▂▃▄▅▆▇█';
+    const hist = values.slice(-n);
+    if (hist.length < 2) return '';
+    const max = Math.max(...hist, 1);
+    return hist.map((v) => blocks[Math.min(7, Math.floor((v / max) * 7.99))]).join('');
+  }
+
   private fame(a: Agent): number {
     return a.kills * 3
       + Math.min(15, a.built * 2)
@@ -478,13 +487,14 @@ export class UI {
     let html = `<h2>${t('The Peoples of the World')}</h2>
       <p class="muted">${t('Click a people to open their sheet.')}</p><table>`;
     const ranked = [...this.sim.factions].sort((a, b) => this.sim.factionScore(b) - this.sim.factionScore(a));
-    html += `<tr><th></th><th>${t('People')}</th><th>${t('Souls')}</th><th>${t('Score')}</th></tr>`;
+    html += `<tr><th></th><th>${t('People')}</th><th>${t('Souls')}</th><th>${t('Score')}</th><th></th></tr>`;
     for (const f of ranked) {
       html += `<tr>
         <td style="color:${f.color}">${f.symbol}</td>
         <td><span class="fac-name" data-faction-id="${f.id}" style="color:${f.color}">${f.name}</span>${f.alive ? '' : ' <span class="bad">†</span>'}</td>
         <td>${this.sim.factionPop(f.id)}</td>
-        <td class="muted">${this.sim.factionScore(f)}</td></tr>`;
+        <td class="muted">${this.sim.factionScore(f)}</td>
+        <td class="muted" style="color:${f.color}">${this.spark(f.scoreHistory, 24)}</td></tr>`;
     }
     html += `</table>`;
     return html;
@@ -555,11 +565,10 @@ export class UI {
     html += `<p><span class="muted">${t('Deeds of the living:')}</span> ${t(deedsKey, { k: kills, g: gathered, c: crafted, a: artifacts })}</p>`;
 
     if (f.popHistory.length > 1) {
-      const blocks = '▁▂▃▄▅▆▇█';
-      const hist = f.popHistory.slice(-40);
-      const max = Math.max(...hist, 1);
-      const spark = hist.map((v) => blocks[Math.min(7, Math.floor((v / max) * 7.99))]).join('');
-      html += `<p class="muted">${t('souls over time: {s} (peak {n})', { s: `<span class="good">${spark}</span>`, n: max })}</p>`;
+      html += `<p class="muted">${t('souls over time: {s} (peak {n})', { s: `<span class="good">${this.spark(f.popHistory)}</span>`, n: Math.max(...f.popHistory.slice(-40), 1) })}</p>`;
+    }
+    if (f.scoreHistory.length > 1) {
+      html += `<p class="muted">${t('score over time: {s} (now {n})', { s: `<span style="color:${f.color}">${this.spark(f.scoreHistory)}</span>`, n: sim.factionScore(f) })}</p>`;
     }
 
     // stock & knowledge

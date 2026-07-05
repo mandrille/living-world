@@ -58,6 +58,28 @@ function updateHud() {
   popEl.textContent = t('☺ {n} souls · {w} war(s)', { n: sim.livingCount(), w: sim.wars.length });
 }
 
+// ---- standings log: watch the race from the browser console ----
+function standings() {
+  return sim.factions
+    .map((f) => ({
+      people: `${f.symbol} ${f.name}${f.alive ? '' : ' †'}`,
+      souls: sim.factionPop(f.id),
+      score: sim.factionScore(f),
+      wars: `${f.warsWon}W/${f.warsLost}L`,
+      leader: sim.agentById(f.leaderId)?.name ?? '—',
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+(window as any).standings = () => { console.table(standings()); return standings(); };
+
+let loggedYear = 0;
+function logStandings(label: string) {
+  if (sim.year === loggedYear) return;
+  loggedYear = sim.year;
+  console.log(`[living-world] ${label} — Year ${sim.year} · ${sim.livingCount()} souls · ${sim.wars.length} war(s)`);
+  console.table(standings());
+}
+
 function applyStaticLabels() {
   document.title = t('The Simulation — a living world');
   document.documentElement.lang = getLang();
@@ -154,6 +176,7 @@ if (SANDBOX) {
     sim.tick();
     renderer.dirty = true;
     updateHud();
+    logStandings('sandbox');
   }, 500);
 }
 
@@ -283,6 +306,7 @@ if (!SANDBOX) {
     catchUp(() => {
       void persist(true);
       updateCountdown();
+      logStandings('caught up with the world');
       if (expectedTicks() >= TOTAL_TICKS) judge();
       const liveStep = () => {
         const target = expectedTicks();
@@ -292,6 +316,7 @@ if (!SANDBOX) {
         updateHud();
         updateCountdown();
         void persist();
+        logStandings('the year turns');
         if (target >= TOTAL_TICKS) judge();
       };
       setInterval(liveStep, 1000);

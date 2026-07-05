@@ -282,6 +282,7 @@ export const UI_ES: Record<string, string> = {
   '{k} foes slain · {g} loads hauled · {c} works forged · {a} named artifacts borne':
     '{k} enemigos abatidos · {g} cargas acarreadas · {c} obras forjadas · {a} artefactos con nombre',
   'souls over time: {s} (peak {n})': 'almas a lo largo del tiempo: {s} (máximo {n})',
+  'score over time: {s} (now {n})': 'puntuación a lo largo del tiempo: {s} (ahora {n})',
   'Stores: food {f}, wood {w}, stone {s}, metal {m}': 'Reservas: comida {f}, madera {w}, piedra {s}, metal {m}',
   'Knowledge:': 'Saber:',
   'none yet': 'nada aún',
