@@ -11,6 +11,7 @@ export interface Snapshot {
   seed: number;
   age: number;
   savedAt: number;
+  tickCount: number; // duplicated out of `state` so freshness checks skip the big parse
   state: string; // Sim.serialize() payload (includes tickCount + RNG state)
 }
 

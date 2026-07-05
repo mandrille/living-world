@@ -1,0 +1,53 @@
+# Publishes an up-to-date world snapshot next to the site every hour, so
+# first-time visitors download the current world instead of replaying the
+# whole age in their browser. Site assets on gh-pages are left untouched.
+#
+# Snapshot commits amend each other (one rolling commit) so the branch
+# doesn't accumulate megabytes of dead history every hour.
+name: world snapshot
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: world-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/build-snapshot.ts /tmp/snapshot.json
+      - name: publish to gh-pages
+        run: |
+          set -euo pipefail
+          git config user.name 'world-snapshot[bot]'
+          git config user.email 'actions@users.noreply.github.com'
+          git fetch origin gh-pages
+          git worktree add /tmp/site origin/gh-pages
+          cd /tmp/site
+          git checkout -B gh-pages origin/gh-pages
+          cp /tmp/snapshot.json snapshot.json
+          git add snapshot.json
+          if git diff --cached --quiet; then
+            echo 'snapshot unchanged, nothing to publish'
+            exit 0
+          fi
+          if [ "$(git log -1 --pretty=%s)" = 'world snapshot' ]; then
+            git commit --amend --no-edit
+            git push --force-with-lease=gh-pages:origin/gh-pages origin gh-pages
+          else
+            git commit -m 'world snapshot'
+            git push origin gh-pages
+          fi

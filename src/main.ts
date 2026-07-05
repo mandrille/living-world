@@ -12,24 +12,26 @@ import { loadSnapshot, saveSnapshot } from './store';
 // to the real clock. Each age lasts seven real days, ends in
 // the Judgment, and a new age begins by itself.
 //
-// Returning visitors resume from a local snapshot and only
-// simulate the time since their last visit.
+// Returning visitors resume from a local snapshot; first-time
+// visitors fetch the hourly snapshot published next to the site
+// (see scripts/build-snapshot.ts). Either way only the time
+// since that snapshot gets simulated.
 // ============================================================
-const BASE_SEED = 20260704;
-const WORLD_START = 1783123200000; // 2026-07-04T00:00:00Z — the first dawn of age 1
-const TICK_MS = 10_000; // the world takes one step every 10 real seconds
-const WEEK_MS = 7 * 24 * 3600 * 1000;
-const TOTAL_TICKS = Math.floor(WEEK_MS / TICK_MS); // 60,480 ticks ≈ 151 sim-years per age
+import { WEEK_MS, TICK_MS, TOTAL_TICKS, ageAt, ageStartOf, seedOf, expectedTicksAt } from './config';
+
 const SAVE_EVERY_MS = 3 * 60_000;
+// skip the network when the local cache is at most this far behind
+// (the published snapshot is up to ~an hour stale itself)
+const REMOTE_WORTH_IT_TICKS = Math.floor((2 * 3600 * 1000) / TICK_MS);
 
 // dev override: ?seed=N runs a private sandbox at a gentle fixed pace
 const params = new URLSearchParams(location.search);
 const devSeed = Number(params.get('seed'));
 const SANDBOX = Number.isFinite(devSeed) && devSeed > 0;
 
-const age = SANDBOX ? 0 : Math.max(0, Math.floor((Date.now() - WORLD_START) / WEEK_MS));
-const ageStart = WORLD_START + age * WEEK_MS;
-const seed = SANDBOX ? devSeed : BASE_SEED + age * 7919;
+const age = SANDBOX ? 0 : ageAt(Date.now());
+const ageStart = ageStartOf(age);
+const seed = SANDBOX ? devSeed : seedOf(age);
 initLang();
 setSeed(seed);
 
@@ -127,7 +129,7 @@ async function persist(force = false) {
   saving = true;
   try {
     const state = sim.serialize();
-    await saveSnapshot({ seed, age, savedAt: Date.now(), state });
+    await saveSnapshot({ seed, age, savedAt: Date.now(), tickCount: sim.tickCount, state });
     lastSaveAt = Date.now();
   } finally {
     saving = false;
@@ -158,8 +160,7 @@ if (SANDBOX) {
 // ============================================================
 // THE ONE WORLD
 // ============================================================
-const expectedTicks = () =>
-  Math.max(0, Math.min(TOTAL_TICKS, Math.floor((Date.now() - ageStart) / TICK_MS)));
+const expectedTicks = () => expectedTicksAt(Date.now(), age);
 
 const updateCountdown = () => {
   const left = ageStart + WEEK_MS - Date.now();
@@ -247,10 +248,33 @@ if (!SANDBOX) {
   };
 
   const boot = async () => {
-    // resume from the last snapshot this browser saved of the same age
-    const snap = await loadSnapshot();
-    if (snap && snap.seed === seed && snap.age === age && snap.state) {
-      sim.loadFrom(snap.state); // on any mismatch this returns false and we replay from tick 0
+    // the freshest usable snapshot wins: the one this browser saved, or the
+    // hourly one published next to the site (worth fetching only when the
+    // local copy is missing or well behind)
+    const local = await loadSnapshot();
+    let best: { state: string; tickCount: number } | null =
+      local && local.seed === seed && local.age === age && local.state
+        ? { state: local.state, tickCount: local.tickCount ?? 0 }
+        : null;
+
+    if (!best || expectedTicks() - best.tickCount > REMOTE_WORTH_IT_TICKS) {
+      try {
+        const res = await fetch('snapshot.json', { cache: 'no-store' });
+        if (res.ok) {
+          const remote = await res.json();
+          if (remote && remote.seed === seed && remote.age === age
+            && typeof remote.state === 'string' && typeof remote.tickCount === 'number'
+            && remote.tickCount > (best?.tickCount ?? 0)) {
+            best = { state: remote.state, tickCount: remote.tickCount };
+          }
+        }
+      } catch {
+        /* offline, or no snapshot published yet — replaying locally is always safe */
+      }
+    }
+
+    if (best) {
+      sim.loadFrom(best.state); // on any mismatch this returns false and we replay from tick 0
       ui.render();
     }
 
