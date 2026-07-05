@@ -11,7 +11,7 @@ export const WEEK_MS = 7 * 24 * 3600 * 1000;
 // cutover keeps its old tick count, and time simply flows faster after.
 const SPEED_EPOCHS: { from: number; tickMs: number }[] = [
   { from: WORLD_START, tickMs: 10_000 },
-  { from: 1783288800000 /* 2026-07-05T22:00:00Z */, tickMs: 500 }, // two steps per second
+  { from: 1783287120000 /* 2026-07-05T21:32:00Z */, tickMs: 500 }, // two steps per second
 ];
 
 /** the current heartbeat (ms of real time per world step) */
