@@ -1582,7 +1582,7 @@ export class Sim {
       f.popHistory.push(f.alive ? this.factionPop(f.id) : 0);
       if (f.popHistory.length > 60) f.popHistory.shift();
       f.scoreHistory.push(this.factionScore(f));
-      if (f.scoreHistory.length > 160) f.scoreHistory.shift(); // an age is ~151 years
+      if (f.scoreHistory.length > 400) f.scoreHistory.shift(); // the sparklines look back a few hundred years at most
     }
     // old paths grass over
     for (const t of this.tiles) {
@@ -1605,13 +1605,30 @@ export class Sim {
     // the dead return to the earth
     this.corpses = this.corpses.filter((c) => this.year - c.year < 3);
 
-    // and all but the notable dead fade from memory (keeps saved worlds small);
-    // this runs on the sim clock so every visitor prunes identically
+    // The dead fade from memory (keeps saved worlds small over thousand-year
+    // ages). Histories trim first; past a hard cap the oldest dead leave the
+    // roster entirely. Runs on the sim clock, so every visitor prunes
+    // identically.
     const remembered = new Set(this.corpses.map((c) => c.agentId));
+    const fadedDead: Agent[] = [];
     for (const a of this.agents) {
-      if (a.alive || remembered.has(a.id) || a.history.length <= 10) continue;
+      if (a.alive || remembered.has(a.id)) continue;
+      fadedDead.push(a);
+      if (a.history.length <= 10) continue;
       const notable = a.kills >= 4 || a.crafted >= 25 || a.built >= 8;
       if (!notable) a.history = [...a.history.slice(0, 2), ...a.history.slice(-6)];
+    }
+    const KEEP_DEAD = 600;
+    if (fadedDead.length > KEEP_DEAD) {
+      // agents array order is creation order, so the oldest dead go first
+      const cut = new Set(fadedDead.slice(0, fadedDead.length - KEEP_DEAD).map((a) => a.id));
+      this.agents = this.agents.filter((a) => !cut.has(a.id));
+      for (const id of cut) this.agentMap.delete(id);
+      for (const a of this.agents) {
+        // a fully forgotten spouse no longer bars remarriage; other dangling
+        // ids (parents, friends, rivals) are filtered at display time
+        if (a.spouseId !== null && cut.has(a.spouseId)) a.spouseId = null;
+      }
     }
   }
 
@@ -1857,7 +1874,7 @@ export class Sim {
 
   serialize(): string {
     return JSON.stringify({
-      v: 7, // v7: fixed faction names (v6: score history; v5: Spanish names; v4: RNG state)
+      v: 8, // v8: dead-roster cap for fast ages (v7: fixed faction names; v6: score history; v5: Spanish names; v4: RNG state)
       rngState: getRngState(),
       tiles: this.tiles,
       factions: this.factions,
@@ -1880,7 +1897,7 @@ export class Sim {
   loadFrom(json: string): boolean {
     try {
       const d = JSON.parse(json);
-      if (!d || d.v !== 7 || typeof d.rngState !== 'number') return false;
+      if (!d || d.v !== 8 || typeof d.rngState !== 'number') return false;
       this.tiles = d.tiles;
       this.factions = d.factions;
       for (const f of this.factions) {
