@@ -1,24 +1,78 @@
 import { pick, chance, ri, rand } from './rng';
 
-const SYL_A = ['Ur', 'Kel', 'Dor', 'Mar', 'Bel', 'Thra', 'Ing', 'Os', 'Vel', 'Gra', 'Hul', 'Ner', 'Ash', 'Bru', 'Kal', 'Ered', 'Som', 'Tal', 'Ulf', 'Wyn', 'Ral', 'Fen', 'Gor', 'Hild', 'Ist'];
-const SYL_B = ['ath', 'im', 'or', 'ek', 'un', 'is', 'ar', 'oth', 'en', 'ik', 'ul', 'esh', 'an', 'il', 'us', 'em', 'od', 'ag'];
-const SYL_C = ['a', 'i', 'o', 'u', 'e'];
+// People carry classic biblical-Spanish names — a given name by sex plus a
+// family surname that children inherit, so houses persist down the years.
+const MALE_NAMES = [
+  'José', 'Juan', 'Pedro', 'Pablo', 'Andrés', 'Santiago', 'Felipe', 'Tomás', 'Mateo', 'Marcos',
+  'Lucas', 'Simón', 'Esteban', 'Miguel', 'Gabriel', 'Rafael', 'Daniel', 'David', 'Salomón', 'Moisés',
+  'Aarón', 'Elías', 'Eliseo', 'Isaías', 'Jeremías', 'Ezequiel', 'Jonás', 'Samuel', 'Saúl', 'Rubén',
+  'Benjamín', 'Isaac', 'Jacob', 'Abraham', 'Noé', 'Adán', 'Caleb', 'Josué', 'Gedeón', 'Ismael',
+  'Lázaro', 'Zacarías', 'Matías', 'Bartolomé', 'Bernabé', 'Timoteo', 'Alberto', 'Alejandro', 'Alfonso', 'Álvaro',
+  'Antonio', 'Bernardo', 'Carlos', 'Diego', 'Domingo', 'Emilio', 'Enrique', 'Fermín', 'Fernando', 'Francisco',
+  'Gonzalo', 'Gregorio', 'Ignacio', 'Jaime', 'Javier', 'Joaquín', 'Jorge', 'Julián', 'Lorenzo', 'Luis',
+  'Manuel', 'Martín', 'Nicolás', 'Pascual', 'Ramón', 'Rodrigo', 'Sancho', 'Sebastián', 'Teodoro', 'Vicente',
+];
+const FEMALE_NAMES = [
+  'María', 'Ana', 'Isabel', 'Elena', 'Marta', 'Sara', 'Raquel', 'Rebeca', 'Ester', 'Judit',
+  'Débora', 'Noemí', 'Rut', 'Salomé', 'Susana', 'Magdalena', 'Verónica', 'Juana', 'Josefa', 'Catalina',
+  'Teresa', 'Lucía', 'Paula', 'Beatriz', 'Clara', 'Inés', 'Adela', 'Manuela', 'Dolores', 'Pilar',
+  'Carmen', 'Rosa', 'Rosario', 'Mercedes', 'Amparo', 'Consuelo', 'Esperanza', 'Milagros', 'Soledad', 'Remedios',
+  'Almudena', 'Aurora', 'Blanca', 'Cecilia', 'Constanza', 'Cristina', 'Emilia', 'Eugenia', 'Eulalia', 'Fabiola',
+  'Francisca', 'Gracia', 'Guadalupe', 'Herminia', 'Jacinta', 'Leonor', 'Lourdes', 'Luisa', 'Margarita', 'Matilde',
+  'Micaela', 'Petra', 'Ramona', 'Sofía', 'Tomasa', 'Úrsula', 'Valentina', 'Victoria', 'Ximena', 'Olalla',
+];
+const SURNAMES = [
+  'Herrero', 'Herrera', 'Guerrero', 'Pastor', 'Molinero', 'Labrador', 'Tejedor', 'Cantero', 'Escudero', 'Cordero',
+  'Serrano', 'Navarro', 'Moreno', 'Rubio', 'Blanco', 'Bravo', 'Delgado', 'Aguilar', 'Peña', 'Castillo',
+  'Roca', 'Robles', 'Nieto', 'Crespo', 'Ibáñez', 'Velasco', 'Osorio', 'Quintana', 'Zamora', 'Salazar',
+  'Toledo', 'Segura', 'Palacios', 'Carvajal', 'Mendoza', 'Vargas', 'Fuentes', 'Cabrera', 'Campos', 'Reyes',
+  'Santos', 'Iglesias', 'Cruz', 'Paredes', 'Escobar', 'Rojas', 'Vega', 'Prado', 'Montes', 'Ríos',
+  'del Río', 'del Valle', 'del Monte', 'de la Vega', 'de la Fuente', 'de la Cruz', 'del Prado', 'Salvador', 'Cárdenas', 'Espinosa',
+  'Figueroa', 'Miranda', 'Ochoa', 'Valdés', 'Zúñiga',
+];
 
-export function personName(): string {
-  let n = pick(SYL_A) + pick(SYL_B);
-  if (chance(0.35)) n += pick(SYL_C) + pick(SYL_B);
-  return n;
+export function givenName(sex: 'm' | 'f'): string {
+  return pick(sex === 'm' ? MALE_NAMES : FEMALE_NAMES);
 }
 
-const FAC_ADJ = ['Ember', 'Grey', 'Deep', 'Silent', 'Iron', 'Amber', 'Hollow', 'Crimson', 'Pale', 'Sundered', 'Verdant', 'Oath', 'Salt', 'Thorn', 'Gilded'];
-const FAC_NOUN = ['Pact', 'Root', 'Vein', 'Banner', 'Circle', 'Hearth', 'Tide', 'Crown', 'Spine', 'Ward', 'Choir', 'Reach', 'Bond', 'Anvil', 'Lantern'];
+export function surname(): string {
+  return pick(SURNAMES);
+}
+
+/** a full name for by-the-way people (item makers, myth figures) */
+export function personName(sex?: 'm' | 'f'): string {
+  const s = sex ?? (chance(0.5) ? 'm' : 'f');
+  return `${givenName(s)} ${surname()}`;
+}
+
+// Faction names are generated in Spanish with real gender agreement;
+// they are proper nouns, identical in both interface languages.
+const FAC_NOUNS: [string, 'm' | 'f'][] = [
+  ['Pacto', 'm'], ['Raíz', 'f'], ['Vena', 'f'], ['Estandarte', 'm'], ['Círculo', 'm'],
+  ['Hogar', 'm'], ['Marea', 'f'], ['Corona', 'f'], ['Espina', 'f'], ['Coro', 'm'],
+  ['Vínculo', 'm'], ['Yunque', 'm'], ['Farol', 'm'], ['Alianza', 'f'], ['Hermandad', 'f'],
+];
+const FAC_ADJS: [string, string][] = [
+  ['Gris', 'Gris'], ['Silencioso', 'Silenciosa'], ['Profundo', 'Profunda'], ['Férreo', 'Férrea'],
+  ['Ambarino', 'Ambarina'], ['Hueco', 'Hueca'], ['Carmesí', 'Carmesí'], ['Pálido', 'Pálida'],
+  ['Quebrado', 'Quebrada'], ['Verde', 'Verde'], ['Sagrado', 'Sagrada'], ['Dorado', 'Dorada'],
+  ['Salino', 'Salina'], ['Espinoso', 'Espinosa'], ['Ardiente', 'Ardiente'],
+];
+const FAC_OF = [
+  'del Alba', 'del Roble', 'del Juramento', 'del Ocaso', 'de las Ascuas',
+  'de la Sal', 'de la Piedra', 'de los Vientos', 'de las Sombras', 'de la Ceniza',
+];
 
 export function factionName(): string {
   const r = rand();
-  const a = pick(FAC_ADJ), b = pick(FAC_NOUN);
-  if (r < 0.4) return `The ${a} ${b}`;
-  if (r < 0.7) return `${b} of the ${a} ${pick(FAC_NOUN)}`;
-  return `Clan ${personName()}`;
+  const [noun, g] = pick(FAC_NOUNS);
+  const art = g === 'm' ? 'El' : 'La';
+  if (r < 0.45) {
+    const adj = pick(FAC_ADJS);
+    return `${art} ${noun} ${g === 'm' ? adj[0] : adj[1]}`;
+  }
+  if (r < 0.75) return `${art} ${noun} ${pick(FAC_OF)}`;
+  return `Clan ${surname()}`;
 }
 
 export const ETHOS = [
@@ -47,7 +101,7 @@ const MYTH_THING = ['bronze bell', 'blackened crown', 'stone tablet', 'child’s
 
 export function factionMyth(): string {
   return pick(MYTH_TPL)
-    .replace('NAME', personName())
+    .replace('NAME', personName('m')) // patriarch-style founders keep “founder/fundador” agreeing in both languages
     .replace('SRC', pick(MYTH_SRC))
     .replace('THING', pick(MYTH_THING));
 }
@@ -71,8 +125,9 @@ export const BELIEFS = [
   'believes names carry fate', 'thinks the leader is chosen by luck, not gods',
 ];
 
-const SETTLE_A = ['Ember', 'Grey', 'Oak', 'Stone', 'Ash', 'Fen', 'Wolf', 'Bright', 'Cold', 'Iron', 'Moss', 'Raven', 'Salt', 'Thorn'];
-const SETTLE_B = ['hold', 'fast', 'rest', 'gate', 'watch', 'hollow', 'mound', 'ford', 'stead', 'barrow', 'hearth'];
+// Spanish-compound place names: Valdehierro, Peñalobos, Fuentefría…
+const SETTLE_A = ['Valde', 'Villa', 'Fuente', 'Torre', 'Monte', 'Peña', 'Puente', 'Castro', 'Río', 'Campo', 'Cerro', 'Vista'];
+const SETTLE_B = ['hierro', 'piedra', 'lobos', 'cuervos', 'sal', 'plata', 'ceniza', 'espinos', 'robles', 'olmos', 'brezos', 'halcones', 'fría', 'oscura'];
 
 export function settlementName(): string {
   return pick(SETTLE_A) + pick(SETTLE_B);
@@ -80,8 +135,9 @@ export function settlementName(): string {
 
 export const QUARREL_REASONS = ['a gambling debt', 'a broken tool never repaid', 'an old insult at a feast', 'a matter of precedence', 'a shared sweetheart', 'the last word in an argument neither remembers starting'];
 
-const ART_A = ['Ash', 'Oath', 'Grief', 'Winter', 'Ember', 'Vow', 'Marrow', 'Dusk', 'Sorrow', 'Thunder'];
-const ART_B = ['biter', 'keeper', 'song', 'brand', 'ward', 'splitter', 'whisper', 'tithe', 'mark', 'fall'];
+// Named works follow the old verb-noun pattern: Matalobos, Quiebrahuesos…
+const ART_A = ['Muerde', 'Quiebra', 'Guarda', 'Corta', 'Rompe', 'Mata', 'Bebe', 'Canta', 'Llora', 'Busca'];
+const ART_B = ['lobos', 'cenizas', 'penas', 'huesos', 'reyes', 'vientos', 'sombras', 'coronas', 'juramentos', 'estrellas'];
 
 export function artifactName(): string {
   return pick(ART_A) + pick(ART_B);

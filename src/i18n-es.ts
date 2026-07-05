@@ -276,6 +276,7 @@ export const UI_ES: Record<string, string> = {
   "Might grows with soldiers' skill and war-craft · Craft with workshops and works forged ({c}) · Wealth with stores ({s}) · Lore with knowledge · Renown with famous deeds · Vigor with the health of the people.":
     'El Poder crece con la destreza de los soldados y las artes de guerra · el Oficio con talleres y obras forjadas ({c}) · la Riqueza con las reservas ({s}) · el Saber con el conocimiento · el Renombre con los hechos famosos · el Vigor con la salud del pueblo.',
   'Deeds of the living:': 'Hechos de los vivos:',
+  'Great families:': 'Grandes familias:',
   '{k} foes slain · {g} loads hauled · {c} works forged · {a} named artifact borne':
     '{k} enemigos abatidos · {g} cargas acarreadas · {c} obras forjadas · {a} artefacto con nombre',
   '{k} foes slain · {g} loads hauled · {c} works forged · {a} named artifacts borne':

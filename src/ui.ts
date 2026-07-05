@@ -539,6 +539,14 @@ export class UI {
     html += `</div>`;
     html += `<p class="muted" style="font-size:11px">${t("Might grows with soldiers' skill and war-craft · Craft with workshops and works forged ({c}) · Wealth with stores ({s}) · Lore with knowledge · Renown with famous deeds · Vigor with the health of the people.", { c: crafted, s: Math.floor(stock) })}</p>`;
 
+    // the great houses: surnames with at least a handful of living members
+    const houses = new Map<string, number>();
+    for (const m of members) houses.set(m.surname, (houses.get(m.surname) ?? 0) + 1);
+    const topHouses = [...houses.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    if (topHouses.length) {
+      html += `<p><span class="muted">${t('Great families:')}</span> ${topHouses.map(([s, n]) => `${s} (${n})`).join(' · ')}</p>`;
+    }
+
     const kills = members.reduce((s, m) => s + m.kills, 0);
     const gathered = members.reduce((s, m) => s + m.gathered, 0);
     const deedsKey = artifacts === 1

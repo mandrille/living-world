@@ -104,6 +104,8 @@ export interface Task {
 export interface Agent {
   id: number;
   name: string;
+  /** family name, inherited from the father — houses persist down the years */
+  surname: string;
   sex: 'm' | 'f';
   age: number;
   factionId: number;

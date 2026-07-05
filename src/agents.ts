@@ -1,6 +1,6 @@
 import { Agent, Role } from './types';
 import { ri, pick, chance, shuffle } from './rng';
-import { personName, PERSONALITY, APPEARANCE, BELIEFS } from './names';
+import { givenName, surname, PERSONALITY, APPEARANCE, BELIEFS } from './names';
 import { makeBody, weather } from './body';
 import { outfit } from './items';
 
@@ -33,6 +33,8 @@ function rollAttrs() {
 }
 
 export function makeAgent(factionId: number, x: number, y: number, role: Role, year: number, isFounder: boolean): Agent {
+  const sex: 'm' | 'f' = chance(0.5) ? 'm' : 'f';
+  const family = surname();
   const age = isFounder ? ri(17, 55) : ri(16, 20);
   const attrs = rollAttrs();
   const body = makeBody(attrs.stamina);
@@ -47,8 +49,9 @@ export function makeAgent(factionId: number, x: number, y: number, role: Role, y
 
   const a: Agent = {
     id: nextId++,
-    name: personName(),
-    sex: chance(0.5) ? 'm' : 'f',
+    name: `${givenName(sex)} ${family}`,
+    surname: family,
+    sex,
     age,
     factionId,
     x, y,
@@ -108,11 +111,13 @@ export function makeChild(mother: Agent, father: Agent, year: number, season: nu
   const skillXp: Record<string, number> = {};
   for (const s of SKILLS) { skills[s] = 0; skillXp[s] = 0; }
   const fromParent = chance(0.5) ? mother : father;
+  const sex: 'm' | 'f' = chance(0.5) ? 'm' : 'f';
 
   const a: Agent = {
     id: nextId++,
-    name: personName(),
-    sex: chance(0.5) ? 'm' : 'f',
+    name: `${givenName(sex)} ${father.surname}`,
+    surname: father.surname, // the father's house carries on
+    sex,
     age: 0,
     factionId: mother.factionId,
     x: mother.x,
