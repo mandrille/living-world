@@ -138,9 +138,10 @@ setInterval(() => {
   if (!paused()) ui.render();
 }, 1800);
 
-// the life layer: keep redrawing so smoke drifts and the crowd sways
-// (purely cosmetic — the simulation itself only steps on its clock)
-setInterval(() => { renderer.dirty = true; }, 120);
+// the life layer: keep redrawing so smoke drifts, the crowd sways, and
+// walkers glide between tiles (purely cosmetic — the simulation itself
+// only steps on its clock)
+setInterval(() => { renderer.dirty = true; }, 40);
 
 // ---- persistence: resume from where this browser last saw the world ----
 let saving = false;
@@ -320,7 +321,9 @@ if (!SANDBOX) {
         logStandings('the year turns');
         if (target >= AGE_TICKS) judge();
       };
-      setInterval(liveStep, 1000);
+      // fine-grained so each due step runs close to its due time — at a
+      // coarser interval steps arrive in bursts and walkers visibly snap
+      setInterval(liveStep, 120);
       // coming back to a backgrounded tab: catch up on the spot
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
