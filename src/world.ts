@@ -58,24 +58,31 @@ export function passable(tiles: Tile[], x: number, y: number): boolean {
   return t !== 'water';
 }
 
-/** Find nearest tile matching predicate within maxDist (chebyshev). Returns null if none. */
+/**
+ * Find nearest tile matching predicate within maxDist (manhattan).
+ * Searches ring by ring and stops at the first hit, so the common case
+ * (a resource a few tiles away) costs ~dozens of checks instead of a
+ * full (2·maxDist+1)² scan — this dominates catch-up speed.
+ * Returns null if none.
+ */
 export function findNearestTile(
   tiles: Tile[], fromX: number, fromY: number, maxDist: number,
   match: (t: Tile, x: number, y: number) => boolean
 ): { x: number; y: number } | null {
-  let best: { x: number; y: number } | null = null;
-  let bestD = Infinity;
-  const x0 = Math.max(0, fromX - maxDist), x1 = Math.min(W - 1, fromX + maxDist);
-  const y0 = Math.max(0, fromY - maxDist), y1 = Math.min(H - 1, fromY + maxDist);
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const t = tiles[y * W + x];
-      if (!match(t, x, y)) continue;
-      const d = Math.abs(x - fromX) + Math.abs(y - fromY);
-      if (d < bestD) { bestD = d; best = { x, y }; }
+  for (let r = 0; r <= maxDist; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const x = fromX + dx;
+      if (x < 0 || x >= W) continue;
+      const ry = r - Math.abs(dx);
+      const yA = fromY - ry;
+      if (yA >= 0 && yA < H && match(tiles[yA * W + x], x, yA)) return { x, y: yA };
+      if (ry > 0) {
+        const yB = fromY + ry;
+        if (yB >= 0 && yB < H && match(tiles[yB * W + x], x, yB)) return { x, y: yB };
+      }
     }
   }
-  return best;
+  return null;
 }
 
 /** A free, passable, building-less grass tile near (x,y). */

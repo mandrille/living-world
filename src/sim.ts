@@ -1,7 +1,7 @@
 import {
   Agent, Beast, Building, BuildingType, ChronicleEntry, Corpse, Faction, Mutation, ResearchBranch, ResourceKind, Tile, WarState,
 } from './types';
-import { ri, rf, pick, chance, shuffle } from './rng';
+import { rand, ri, rf, pick, chance, shuffle, getRngState, setRngState } from './rng';
 import { W, H, makeWorld, tileAt, inBounds, passable, findNearestTile, findFreeSpotNear } from './world';
 import { makeAgent, makeChild, gainXp, getNextAgentId, setNextAgentId } from './agents';
 import { makeFaction } from './factions';
@@ -205,7 +205,17 @@ export class Sim {
   }
 
   atWar(fa: number, fb: number): boolean {
-    return this.wars.some((w) => (w.a === fa && w.b === fb) || (w.a === fb && w.b === fa));
+    for (const w of this.wars) {
+      if ((w.a === fa && w.b === fb) || (w.a === fb && w.b === fa)) return true;
+    }
+    return false;
+  }
+
+  private atWarAny(fa: number): boolean {
+    for (const w of this.wars) {
+      if (w.a === fa || w.b === fa) return true;
+    }
+    return false;
   }
 
   private shiftRelation(a: Faction, b: Faction, delta: number) {
@@ -244,16 +254,31 @@ export class Sim {
     return b;
   }
 
+  /** completed halls & hamlets per faction, rebuilt each tick with the grid */
+  private hallCache: { x: number; y: number }[][] = [];
+
+  private hallsOf(factionId: number): { x: number; y: number }[] {
+    if (this.hallCache.length !== this.factions.length) this.rebuildHallCache();
+    return this.hallCache[factionId] ?? [];
+  }
+
+  private rebuildHallCache() {
+    this.hallCache = this.factions.map(() => []);
+    for (const b of this.buildings) {
+      if (b.complete && (b.type === 'hall' || b.type === 'hamlet')) {
+        this.hallCache[b.factionId].push({ x: b.x, y: b.y });
+      }
+    }
+  }
+
   /** the nearest completed hall or hamlet of the agent's own faction */
   private nearestOwnHall(a: Agent): { x: number; y: number } {
     const f = this.factions[a.factionId];
     let best = { x: f.hallX, y: f.hallY };
     let bd = Infinity;
-    for (const b of this.buildings) {
-      if (b.factionId !== a.factionId || !b.complete) continue;
-      if (b.type !== 'hall' && b.type !== 'hamlet') continue;
+    for (const b of this.hallsOf(a.factionId)) {
       const d = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-      if (d < bd) { bd = d; best = { x: b.x, y: b.y }; }
+      if (d < bd) { bd = d; best = b; }
     }
     return best;
   }
@@ -292,6 +317,7 @@ export class Sim {
   }
 
   private rebuildGrid() {
+    this.rebuildHallCache();
     this.grid.clear();
     this.popCache = new Array(this.factions.length).fill(0);
     for (const a of this.agents) {
@@ -321,15 +347,27 @@ export class Sim {
   }
 
   private hostileNear(a: Agent, range: number): Agent | null {
+    // hot path (every agent, every tick): walk the grid cells directly,
+    // no intermediate array; bail out early when this faction has no wars
+    if (!this.atWarAny(a.factionId)) return null;
     let best: Agent | null = null;
     let bestD = Infinity;
-    for (const o of this.nearbyAgents(a.x, a.y, range)) {
-      if (o.factionId === a.factionId || !o.alive) continue;
-      if (!this.atWar(a.factionId, o.factionId)) continue;
-      const d = Math.abs(o.x - a.x) + Math.abs(o.y - a.y);
-      // a sworn enemy draws the eye before anyone else
-      const score = a.grudgeIds.includes(o.id) ? d - 100 : d;
-      if (score < bestD) { bestD = score; best = o; }
+    const c0x = (a.x - range) >> 2, c1x = (a.x + range) >> 2;
+    const c0y = (a.y - range) >> 2, c1y = (a.y + range) >> 2;
+    for (let cy = c0y; cy <= c1y; cy++) {
+      for (let cx = c0x; cx <= c1x; cx++) {
+        const cell = this.grid.get(cy * 64 + cx);
+        if (!cell) continue;
+        for (const o of cell) {
+          if (o.factionId === a.factionId || !o.alive) continue;
+          if (Math.abs(o.x - a.x) > range || Math.abs(o.y - a.y) > range) continue;
+          if (!this.atWar(a.factionId, o.factionId)) continue;
+          const d = Math.abs(o.x - a.x) + Math.abs(o.y - a.y);
+          // a sworn enemy draws the eye before anyone else
+          const score = a.grudgeIds.includes(o.id) ? d - 100 : d;
+          if (score < bestD) { bestD = score; best = o; }
+        }
+      }
     }
     return best;
   }
@@ -854,28 +892,34 @@ export class Sim {
     this.terrainDirty = true;
   }
 
+  private step(a: Agent, mx: number, my: number): boolean {
+    if (mx === 0 && my === 0) return false;
+    if (!passable(this.tiles, a.x + mx, a.y + my)) return false;
+    a.x += mx;
+    a.y += my;
+    this.wearTile(a.x, a.y);
+    this.radiationCheck(a);
+    return true;
+  }
+
   private moveToward(a: Agent, tx: number, ty: number) {
+    // hot path (every moving agent, every tick): direct diagonal first,
+    // then the two straight fallbacks in random order, allocation-free
     const dx = Math.sign(tx - a.x);
     const dy = Math.sign(ty - a.y);
-    const options = shuffle([
-      [dx, dy], [dx, 0], [0, dy],
-      [dx === 0 ? (chance(0.5) ? 1 : -1) : dx, dy === 0 ? (chance(0.5) ? 1 : -1) : dy],
-    ]);
-    // prefer the direct diagonal first
-    options.sort((p, q) => {
-      const dp = Math.abs(a.x + p[0] - tx) + Math.abs(a.y + p[1] - ty);
-      const dq = Math.abs(a.x + q[0] - tx) + Math.abs(a.y + q[1] - ty);
-      return dp - dq;
-    });
-    for (const [mx, my] of options) {
-      if (mx === 0 && my === 0) continue;
-      if (passable(this.tiles, a.x + mx, a.y + my)) {
-        a.x += mx;
-        a.y += my;
-        this.wearTile(a.x, a.y);
-        this.radiationCheck(a);
-        return;
+    if (dx !== 0 && dy !== 0) {
+      if (this.step(a, dx, dy)) return;
+      if (chance(0.5)) {
+        if (this.step(a, dx, 0) || this.step(a, 0, dy)) return;
+      } else {
+        if (this.step(a, 0, dy) || this.step(a, dx, 0)) return;
       }
+    } else if (dx !== 0) {
+      if (this.step(a, dx, 0)) return;
+      if (this.step(a, dx, chance(0.5) ? 1 : -1)) return;
+    } else if (dy !== 0) {
+      if (this.step(a, 0, dy)) return;
+      if (this.step(a, chance(0.5) ? 1 : -1, dy)) return;
     }
     // fully blocked: random legal step
     const rx = ri(-1, 1), ry = ri(-1, 1);
@@ -1558,6 +1602,15 @@ export class Sim {
     }
     // the dead return to the earth
     this.corpses = this.corpses.filter((c) => this.year - c.year < 3);
+
+    // and all but the notable dead fade from memory (keeps saved worlds small);
+    // this runs on the sim clock so every visitor prunes identically
+    const remembered = new Set(this.corpses.map((c) => c.agentId));
+    for (const a of this.agents) {
+      if (a.alive || remembered.has(a.id) || a.history.length <= 10) continue;
+      const notable = a.kills >= 4 || a.crafted >= 25 || a.built >= 8;
+      if (!notable) a.history = [...a.history.slice(0, 2), ...a.history.slice(-6)];
+    }
   }
 
   private socialLife() {
@@ -1714,7 +1767,7 @@ export class Sim {
         let v = cur - Math.sign(cur);
 
         if (!this.atWar(a.id, b.id) && chance(0.3)) {
-          const roll = Math.random();
+          const roll = rand(); // seeded — Math.random() here made every visitor's history diverge
           if (roll < 0.22) {
             v += ri(8, 15);
             this.log('politics', `${a.name} sends gifts of ${pick(['grain', 'worked bronze', 'salt', 'dyed wool'])} to ${b.name}. Relations warm.`);
@@ -1802,7 +1855,8 @@ export class Sim {
 
   serialize(): string {
     return JSON.stringify({
-      v: 3, // older saves predate diseases/mutations/research and cannot be loaded
+      v: 4, // v4 adds the RNG state: without it a resumed world drifts from a replayed one
+      rngState: getRngState(),
       tiles: this.tiles,
       factions: this.factions,
       agents: this.agents,
@@ -1824,7 +1878,7 @@ export class Sim {
   loadFrom(json: string): boolean {
     try {
       const d = JSON.parse(json);
-      if (!d || d.v !== 3) return false;
+      if (!d || d.v !== 4 || typeof d.rngState !== 'number') return false;
       this.tiles = d.tiles;
       this.factions = d.factions;
       for (const f of this.factions) f.popHistory = f.popHistory ?? [];
@@ -1846,6 +1900,7 @@ export class Sim {
       this.day = d.day;
       this.nextBuildingId = d.nextBuildingId;
       setNextAgentId(d.nextAgentId);
+      setRngState(d.rngState); // last, so nothing above can disturb the restored stream
       this.selectedAgentId = null;
       this.terrainDirty = true;
       return true;

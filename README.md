@@ -4,7 +4,9 @@ A Dwarf Fortress–inspired living-world simulation that runs in the browser.
 
 **Play it online: https://mandrille.github.io/living-world/**
 
-There is **one world**, the same for everyone who opens the page — computed deterministically from the current age's seed and anchored to real time (no server). The world takes one step every 20 real seconds. Each **age lasts seven real days**; at its end **the Judgment** crowns a winner by population, stores, and knowledge, and a new age dawns. Click anything on the map — a person, a 300-year-old yew, a half-built barracks — and it will tell you about itself.
+There is **one world**, the same for everyone who opens the page — computed deterministically from the current age's seed and anchored to real time (no server). The world takes one step every 10 real seconds. Each **age lasts seven real days**; at its end **the Judgment** crowns a winner by population, stores, and knowledge, and a new age dawns. Click anything on the map — a person, a 300-year-old yew, a half-built barracks — and it will tell you about itself.
+
+The world's history draws exclusively from a seeded RNG, so every visitor replays the exact same events. Your browser caches a snapshot in IndexedDB: after the first visit, opening the page only simulates the time since you last looked. The interface is bilingual — an **EN/ES** button in the top bar switches the whole UI *and* every generated chronicle line, life story, myth, and item between English and Spanish at any time (the world state itself is language-neutral).
 
 - **Symbolic art**: the world is drawn as colored glyphs on a canvas (`@` agents, `♠` forests, `▲` mountains, `◆◇⌂▦✠⚒` buildings, `w` wolves, `☠` the dead, `∙` roads worn in by foot traffic).
 - **Hundreds of agents**: 270 founders grow into a thousand souls. Click anyone — living or dead — for a record-sheet-style character sheet: nine attributes (Physical / Social / Mental, rated in dots 1–5), skill columns with dot ratings, Health/Hunger/Renown tracks, gear with real makers and provenance, personality, beliefs, family, and a life history of everything they've done. Body parts are itemized only when wounded, scarred, or missing; sections collapse and remember their state.
@@ -23,14 +25,16 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5199 — append `?seed=12345` for a reproducible world.
+Open http://localhost:5199 — append `?seed=12345` for a reproducible sandbox world.
+
+`npm run verify` checks the three invariants the shared world depends on: same seed ⇒ byte-identical history, snapshot-resume ⇒ identical to a straight run, and full Spanish coverage of every string the sim can generate.
 
 ## Controls
 
 - **Drag** to pan, **scroll** to zoom (or −/+ buttons); **minimap** (bottom right) click to jump
 - Click an agent, corpse, or building to inspect it; hover for tooltips
 - Tabs: Inspect / Factions (lore, notables, population sparklines) / Legends (famous figures & named artifacts) / Chronicle (filterable world history)
-- Top bar: pause / 1× / 3× / 10× speed, ⟳ New World, 💾 Save / 📂 Load (localStorage)
+- Top bar: date & souls, age countdown, 🔗 Share, ES/EN language toggle, −/+ zoom
 
 ## Structure
 
@@ -43,3 +47,6 @@ Open http://localhost:5199 — append `?seed=12345` for a reproducible world.
 | `src/render.ts` | glyph renderer: camera (zoom/pan), cached terrain, minimap, hover labels, dirty-flag redraws |
 | `src/ui.ts` | character sheets, faction pages, legends, chronicle |
 | `src/rng.ts` | seeded RNG (mulberry32) for reproducible worlds |
+| `src/i18n.ts`, `src/i18n-es.ts` | EN/ES switcher: UI dictionary + template-matching translator for generated prose |
+| `src/store.ts` | IndexedDB snapshot cache (fast reopen) |
+| `scripts/verify.ts` | determinism / snapshot / translation-coverage checks |

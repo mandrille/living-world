@@ -5,6 +5,15 @@ export function setSeed(s: number) {
   state = s >>> 0;
 }
 
+/** current generator state, for exact save/resume of a running world */
+export function getRngState(): number {
+  return state;
+}
+
+export function setRngState(s: number) {
+  state = s >>> 0;
+}
+
 export function rand(): number {
   state = (state + 0x6d2b79f5) >>> 0;
   let t = state;
