@@ -1,6 +1,7 @@
 import { Sim } from './sim';
 import { W, H } from './world';
 import { Agent, TerrainType } from './types';
+import { t, tr } from './i18n';
 
 export const TILE = 10;
 const MIN_ZOOM = 0.5;
@@ -492,7 +493,7 @@ export class Renderer {
       if (d <= 1 && d < bestD) {
         bestD = d;
         const f = this.sim.factions[a.factionId];
-        target = { name: a.name, sub: `${a.role} of ${f.name}`, color: f.color, x: a.x, y: a.y };
+        target = { name: a.name, sub: t('{r} of {f}', { r: t(a.role), f: f.name }), color: f.color, x: a.x, y: a.y };
       }
     }
     if (!target) {
@@ -500,7 +501,7 @@ export class Renderer {
         if (Math.max(Math.abs(corpse.x - this.hoverX), Math.abs(corpse.y - this.hoverY)) <= 1) {
           const a = this.sim.agentById(corpse.agentId);
           if (a) {
-            target = { name: a.name, sub: 'dead — click to read their story', color: '#8a8a99', x: corpse.x, y: corpse.y };
+            target = { name: a.name, sub: t('dead — click to read their story'), color: '#8a8a99', x: corpse.x, y: corpse.y };
             break;
           }
         }
@@ -509,7 +510,7 @@ export class Renderer {
     if (!target) {
       for (const b of this.sim.beasts) {
         if (Math.max(Math.abs(b.x - this.hoverX), Math.abs(b.y - this.hoverY)) <= 1) {
-          target = { name: 'a wolf', sub: 'lean and patient — keeps to the deep woods', color: '#9a8f8f', x: b.x, y: b.y };
+          target = { name: t('a wolf'), sub: t('lean and patient — keeps to the deep woods'), color: '#9a8f8f', x: b.x, y: b.y };
           break;
         }
       }
@@ -518,7 +519,7 @@ export class Renderer {
       const b = this.sim.buildingAt(this.hoverX, this.hoverY);
       if (b) {
         const f = this.sim.factions[b.factionId];
-        target = { name: b.complete ? b.name : `${b.name} (under construction)`, sub: f.name, color: f.color, x: b.x, y: b.y };
+        target = { name: b.complete ? tr(b.name) : t('{b} (under construction)', { b: tr(b.name) }), sub: f.name, color: f.color, x: b.x, y: b.y };
       }
     }
     if (!target) return;
