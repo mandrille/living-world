@@ -6,7 +6,7 @@ import { itemLabel } from './items';
 import { relationLabel } from './factions';
 import { seasonName } from './names';
 import { Renderer } from './render';
-import { t, tr } from './i18n';
+import { t, tg, tr } from './i18n';
 
 type TabName = 'inspect' | 'factions' | 'legends' | 'chronicle';
 
@@ -158,14 +158,14 @@ export class UI {
 
   private epithet(a: Agent): string {
     const f = this.sim.factions[a.factionId];
-    if (a.kills >= 8) return t('the Dreaded');
-    if (a.id === f.leaderId) return t('the {t}', { t: tr(f.leaderTitle) });
-    if (a.kills >= 4) return t('the Blooded');
-    if (a.crafted >= 40) return t('the Maker');
-    if (a.built >= 8) return t('the Builder');
-    if (a.gathered >= 250) return t('the Tireless');
-    if (a.equipment.some((i) => i.artifactName)) return t('the Keeper');
-    return t('the Quiet');
+    if (a.kills >= 8) return tg('the Dreaded', a.sex);
+    if (a.id === f.leaderId) return t('the {t}', { t: tr(f.leaderTitle, a.sex) });
+    if (a.kills >= 4) return tg('the Blooded', a.sex);
+    if (a.crafted >= 40) return tg('the Maker', a.sex);
+    if (a.built >= 8) return tg('the Builder', a.sex);
+    if (a.gathered >= 250) return tg('the Tireless', a.sex);
+    if (a.equipment.some((i) => i.artifactName)) return tg('the Keeper', a.sex);
+    return tg('the Quiet', a.sex);
   }
 
   // ---------------- agent sheet ----------------
@@ -207,12 +207,12 @@ export class UI {
 
     // ---- header, in the style of the old record-sheets ----
     let html = `<div class="sheet-logo" style="color:${f.color}">${f.symbol} <span class="fac-name" data-faction-id="${f.id}">${f.name}</span> ${f.symbol}</div>`;
-    if (!a.alive) html += `<p class="dead-banner">† ${t('dead — {c}', { c: tr(a.deathCause ?? '') })}</p>`;
+    if (!a.alive) html += `<p class="dead-banner">† ${t('dead — {c}', { c: tr(a.deathCause ?? '', a.sex) })}</p>`;
     html += `<table class="sheet-grid">
-      <tr>${cell(t('Name'), a.name)}${cell(t('Role'), t(a.role) + (a.id === f.leaderId ? ` · ${tr(f.leaderTitle)}` : ''))}${cell(t('Age'), `${a.age}, ${t(a.sex === 'm' ? 'male' : 'female')}`)}</tr>
+      <tr>${cell(t('Name'), a.name)}${cell(t('Role'), tg(a.role, a.sex) + (a.id === f.leaderId ? ` · ${tr(f.leaderTitle, a.sex)}` : ''))}${cell(t('Age'), `${a.age}, ${t(a.sex === 'm' ? 'male' : 'female')}`)}</tr>
       <tr>${cell(t('Home'), f.settlement)}${cell(t('Doing'), a.alive && a.task ? this.taskText(a) : a.alive ? t('idle') : '—')}${cell(t('Health'), `<span class="${health.cls}">${t(health.label)}</span>${a.disease ? ` · <span class="bad">${t('sick: {d}', { d: tr(a.disease.name) })}</span>` : ''}`)}</tr>
     </table>`;
-    html += `<p class="muted appearance">${cap(tr(a.appearance))}.</p>`;
+    html += `<p class="muted appearance">${cap(tr(a.appearance, a.sex))}.</p>`;
 
     // ---- attributes ----
     const AT = a.attrs;
@@ -260,8 +260,8 @@ export class UI {
     }
 
     html += `<details data-sec="mind" open><summary>${t('Mind & bonds')}</summary>
-      <p><span class="muted">${t('Traits:')}</span> ${a.personality.map((p) => tr(p)).join('; ')}.</p>
-      <p>${a.name} ${tr(a.belief)}.</p>` + this.renderBonds(a) + `</details>`;
+      <p><span class="muted">${t('Traits:')}</span> ${a.personality.map((p) => tr(p, a.sex)).join('; ')}.</p>
+      <p>${a.name} ${tr(a.belief, a.sex)}.</p>` + this.renderBonds(a) + `</details>`;
 
     let gear = '';
     if (a.equipment.length === 0) gear = `<p class="muted">${t('Nothing but the clothes on their back.')}</p>`;
@@ -296,7 +296,7 @@ export class UI {
     html += `<details data-sec="life" open><summary>${t('Life & deeds')}</summary>
       <p class="muted">${t('Kills: {k} · Loads gathered: {g} · Buildings raised: {b} · Works forged: {c}', { k: a.kills, g: a.gathered, b: a.built, c: a.crafted })}</p>
       <div class="hist">` + a.history.map((h) =>
-        `<p><span class="yr">${this.yrLabel(h.year, h.season)}</span>${tr(h.text)}</p>`
+        `<p><span class="yr">${this.yrLabel(h.year, h.season)}</span>${tr(h.text, a.sex)}</p>`
       ).join('') + `</div></details>`;
 
     return html;

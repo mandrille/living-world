@@ -353,6 +353,26 @@ export const UI_ES: Record<string, string> = {
   '{b} (under construction)': '{b} (en obras)',
 };
 
+// Feminine forms of UI strings whose Spanish differs by the subject's sex.
+// Looked up by tg(); anything missing here falls back to UI_ES.
+export const UI_ES_F: Record<string, string> = {
+  'worker': 'trabajadora',
+  'builder': 'constructora',
+  'child': 'niña',
+  'crafter': 'artesana',
+  'medic': 'sanadora',
+  'worker / builder': 'trabajadora / constructora',
+  'the Dreaded': 'la Temida',
+  'the Blooded': 'la Sangrienta',
+  'the Maker': 'la Hacedora',
+  'the Builder': 'la Constructora',
+  'the Tireless': 'la Incansable',
+  'the Keeper': 'la Guardiana',
+  'the Quiet': 'la Callada',
+  'male': 'varón',
+  'female': 'mujer',
+};
+
 // ---------------- exact stored fragments ----------------
 
 export const PHRASES_ES: Record<string, string> = {
@@ -682,6 +702,58 @@ export const PHRASES_ES: Record<string, string> = {
   'fell in battle': 'cayó en batalla',
 };
 
+// Masculine forms for the few stored fragments whose default is feminine.
+export const PHRASES_ES_M: Record<string, string> = {
+  'High Matron': 'Alto Patriarca',
+  'Hearthmother': 'Padre del Hogar',
+};
+
+// Feminine forms of stored fragments whose adjectives refer to the person.
+export const PHRASES_ES_F: Record<string, string> = {
+  // leader titles held by a woman
+  'Warlord': 'Señora de la Guerra',
+  'First Speaker': 'Primera Oradora',
+  'Elder-of-Elders': 'Anciana de Ancianos',
+  'Keeper of the Ledger': 'Guardiana del Libro Mayor',
+  'Hearthfather': 'Madre del Hogar',
+
+  // personality traits
+  'quick to anger': 'pronta a la ira',
+  'incorrigibly curious': 'incorregiblemente curiosa',
+  'superstitious': 'supersticiosa',
+  'quietly ambitious': 'calladamente ambiciosa',
+  'generous to a fault': 'generosa hasta el exceso',
+  'devout': 'devota',
+  'a doubter': 'descreída',
+  'vain about their hair': 'presumida con su pelo',
+  'a habitual liar about small things': 'mentirosa habitual en las cosas pequeñas',
+
+  // appearances
+  'wiry and sharp-eyed': 'enjuta y de mirada afilada',
+  'short and thick-limbed': 'baja y de miembros recios',
+  'tall, with ink-dark hair worn in braids': 'alta, con pelo negro como la tinta recogido en trenzas',
+  'round-faced and ruddy': 'de cara redonda y rubicunda',
+  'gaunt, with restless hands': 'demacrada, de manos inquietas',
+  'freckled and sun-browned': 'pecosa y tostada por el sol',
+
+  // beliefs
+  'is certain they will die far from home': 'está segura de que morirá lejos de casa',
+
+  // mutation reason
+  'Born strange:': 'Nació extraña:',
+
+  // fixed history lines & death causes
+  'Was set upon by wolves in the wilds and bore the bite-marks after.':
+    'Fue atacada por lobos en los páramos y llevó las marcas de sus dientes desde entonces.',
+  "Became one of the settlement's most tireless providers.":
+    'Se convirtió en una de las proveedoras más incansables del asentamiento.',
+  "Has become the settlement's trusted smith; their mark is known on sight.":
+    'Se ha convertido en la herrera de confianza del asentamiento; su marca se reconoce a simple vista.',
+  'Was called to stand watch as a soldier.': 'Fue llamada a montar guardia como soldado.',
+  'was torn apart by wolves on the road': 'fue despedazada por los lobos en el camino',
+  'was consumed by the weeping tumor': 'fue consumida por el tumor lacrimoso',
+};
+
 // ---------------- prose templates ----------------
 
 export const RULES_ES: [string, string][] = [
@@ -729,7 +801,10 @@ export const RULES_ES: [string, string][] = [
     'Se casó con {n} en la vieja tierra, antes de la fundación.'],
   ['Married {n}.', 'Se casó con {n}.'],
   ['Born in {s}, child of {m} and {f}.', 'Nació en {s}, de {m} y {f}.'],
-  ['Since then, {n} {x}.', 'Desde entonces, {n} {x}.'],
+  // full-line forms: the trailing literals anchor the match, so multi-word
+  // surnames (“Rubén Salvador”) capture whole instead of splitting mid-name
+  ['Since then, {n} carries {s} on the {p}.', 'Desde entonces, {n} lleva {s} en {p}.'],
+  ['Since then, {n} is missing their {p}.', 'Desde entonces, a {n} le falta {p}.'],
   ['is missing their {p}', 'perdió {p}'],
   ['carries {s} on the {p}', 'lleva {s} en {p}'],
   ['{a} — the very image of their mother', '{a}: el vivo retrato de su madre'],
@@ -831,6 +906,13 @@ export const RULES_ES: [string, string][] = [
   ['{n} of {f} fell in battle.', '{n} de {f} cayó en batalla.'],
 
   // ---- succession ----
+  // “Keeper of the Ledger” contains “ of ”, which would split the generic
+  // {t} of {f} patterns mid-title — these explicit forms outrank them
+  ['Was acclaimed Keeper of the Ledger of {f}.', 'Fue aclamado Guardián del Libro Mayor de {f}.'],
+  ['Was raised to Keeper of the Ledger of {f} after the death of {n}.',
+    'Fue elevado a Guardián del Libro Mayor de {f} tras la muerte de {n}.'],
+  ['{n}, Keeper of the Ledger of {f}, is dead. {h} now leads.',
+    '{n}, Guardián del Libro Mayor de {f}, ha muerto. Ahora manda {h}.'],
   ['Was raised to {t} of {f} after the death of {n}.',
     'Fue elevado a {t} de {f} tras la muerte de {n}.'],
   ['{n}, {t} of {f}, is dead. {h} now leads.', '{n}, {t} de {f}, ha muerto. Ahora manda {h}.'],
@@ -918,3 +1000,23 @@ for (const [qe, qs] of QUALITIES) {
     RULES_ES.push([`${qe} ${me} {k}`, `{k} de ${ms}, ${qs}`]);
   }
 }
+
+// Feminine forms of prose templates, keyed by the same English template.
+// Only entries where a participle or adjective refers to the subject.
+export const RULES_ES_F: Record<string, string> = {
+  'Was acclaimed {t} of {f}.': 'Fue aclamada {t} de {f}.',
+  'Was raised to {t} of {f} after the death of {n}.': 'Fue elevada a {t} de {f} tras la muerte de {n}.',
+  'Was acclaimed Keeper of the Ledger of {f}.': 'Fue aclamada Guardiana del Libro Mayor de {f}.',
+  'Was raised to Keeper of the Ledger of {f} after the death of {n}.':
+    'Fue elevada a Guardiana del Libro Mayor de {f} tras la muerte de {n}.',
+  'Was passed over for the leadership of {f} by a hair\'s breadth. The slight festers.':
+    'Quedó a un pelo de encabezar {f}, y fue relegada. El desaire supura.',
+  'Traded in {s} and was feasted as a guest of {f}.': 'Comerció en {s} y fue agasajada como huésped de {f}.',
+  'Took up the herbs and knives as a healer of {s}.': 'Tomó las hierbas y los cuchillos como sanadora de {s}.',
+  'Grew close to {n} over a season of shared work.': 'Se hizo amiga de {n} tras una estación de trabajo compartido.',
+  'Was caught in the quake of Y{y}; the {p} never sat right again.':
+    'Quedó atrapada en el temblor del año {y}; {p} nunca volvió a estar bien.',
+  'died of old age at {n}': 'murió de vieja a los {n} años',
+  'slain in battle by {n} of {f} (the {p} was destroyed)': 'abatida en batalla por {n} de {f} ({p}: destruido)',
+  'burned to death in the great fire of Y{n}': 'murió abrasada en el gran incendio del año {n}',
+};
