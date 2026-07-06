@@ -8,7 +8,10 @@ name: world snapshot
 
 on:
   schedule:
+    # two staggered chances per hour — GitHub's shared cron queue silently
+    # skips slots at times, and the concurrency group below prevents overlap
     - cron: '7 * * * *'
+    - cron: '37 * * * *'
   workflow_dispatch:
 
 permissions:
