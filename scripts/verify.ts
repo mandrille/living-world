@@ -95,15 +95,16 @@ for (const f of a.factions) {
 for (const bld of a.buildings) add(bld.name, 'buildingName');
 for (const w of a.wars) add(w.name, 'warName');
 
-// untranslated = tr() returned the line unchanged although it clearly
-// contains English function words (lines of pure proper nouns are fine)
+// untranslated = the OUTPUT still contains English function words — this
+// also catches nested fragments that a matching outer rule passed through
+// untranslated (lines of pure proper nouns are fine)
 const englishTell = /\b(the|of|and|was|their|from|with|has|is|in a|to the|who|by)\b/;
 let ok = 0;
 const misses: [string, string][] = [];
 for (const [txt, src] of corpus) {
   const out = tr(txt);
-  if (out !== txt || !englishTell.test(txt)) ok++;
-  else misses.push([src, txt]);
+  if (!englishTell.test(out)) ok++;
+  else misses.push([src, `${txt}  →  ${out}`]);
 }
 const pct = ((ok / corpus.size) * 100).toFixed(2);
 console.log(`i18n coverage: ${ok}/${corpus.size} distinct strings translated (${pct}%)`);

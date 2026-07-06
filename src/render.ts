@@ -1,7 +1,7 @@
 import { Sim } from './sim';
 import { W, H } from './world';
 import { Agent, TerrainType } from './types';
-import { t, tr } from './i18n';
+import { t, tg, tr } from './i18n';
 
 export const TILE = 10;
 const MIN_ZOOM = 0.5;
@@ -526,7 +526,7 @@ export class Renderer {
       if (d <= 1 && d < bestD) {
         bestD = d;
         const f = this.sim.factions[a.factionId];
-        target = { name: a.name, sub: t('{r} of {f}', { r: t(a.role), f: f.name }), color: f.color, x: a.x, y: a.y };
+        target = { name: a.name, sub: t('{r} of {f}', { r: tg(a.role, a.sex), f: f.name }), color: f.color, x: a.x, y: a.y };
       }
     }
     if (!target) {

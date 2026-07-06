@@ -11,7 +11,9 @@
 //                   world can be read in either language and the
 //                   deterministic RNG stream is never touched.
 // ============================================================
-import { UI_ES, PHRASES_ES, RULES_ES } from './i18n-es';
+import { UI_ES, UI_ES_F, PHRASES_ES, PHRASES_ES_F, PHRASES_ES_M, RULES_ES, RULES_ES_F } from './i18n-es';
+
+export type Gender = 'm' | 'f';
 
 export type Lang = 'en' | 'es';
 
@@ -61,6 +63,12 @@ export function t(key: string, vars?: Record<string, string | number>): string {
   return out;
 }
 
+/** like t(), but picks the feminine Spanish form when the subject is a woman */
+export function tg(key: string, g: Gender): string {
+  if (lang === 'en') return key;
+  return (g === 'f' ? UI_ES_F[key] : undefined) ?? UI_ES[key] ?? key;
+}
+
 // ---------------- generated prose ----------------
 
 interface CompiledRule {
@@ -69,6 +77,8 @@ interface CompiledRule {
   sig: string;
   slots: string[];
   es: string;
+  /** feminine Spanish form, where participles/adjectives refer to the subject */
+  esF?: string;
   literalLen: number;
 }
 
@@ -95,10 +105,13 @@ function compileRules(): CompiledRule[] {
       }
     }
     re += '$';
-    out.push({ re: new RegExp(re), sig, slots, es, literalLen });
+    out.push({ re: new RegExp(re), sig, slots, es, esF: RULES_ES_F[en], literalLen });
   }
-  // longer literal content = more specific = tried first
-  out.sort((a, b) => b.literalLen - a.literalLen);
+  // more specific rules first: literal content counts, and each slot adds
+  // structure too — otherwise a long-literal one-slot rule (a mutation
+  // reason) can swallow a whole composed line it appears inside of
+  const spec = (r: CompiledRule) => r.literalLen + r.slots.length * 10;
+  out.sort((a, b) => spec(b) - spec(a));
   return out;
 }
 
@@ -109,10 +122,11 @@ function contract(s: string): string {
   return s.replace(/\bde el /g, 'del ').replace(/\ba el /g, 'al ');
 }
 
-function trFragment(text: string, depth: number): string {
+function trFragment(text: string, depth: number, g?: Gender): string {
   if (depth > 4 || text.length === 0) return text;
 
-  const exact = PHRASES_ES[text];
+  const gendered = g === 'f' ? PHRASES_ES_F[text] : g === 'm' ? PHRASES_ES_M[text] : undefined;
+  const exact = gendered ?? PHRASES_ES[text];
   if (exact !== undefined) return exact;
 
   if (!compiled) compiled = compileRules();
@@ -120,9 +134,9 @@ function trFragment(text: string, depth: number): string {
     if (rule.sig && !text.includes(rule.sig)) continue;
     const m = rule.re.exec(text);
     if (!m) continue;
-    let out = rule.es;
+    let out = (g === 'f' ? rule.esF : undefined) ?? rule.es;
     for (let i = 0; i < rule.slots.length; i++) {
-      out = out.split(`{${rule.slots[i]}}`).join(trFragment(m[i + 1], depth + 1));
+      out = out.split(`{${rule.slots[i]}}`).join(trFragment(m[i + 1], depth + 1, g));
     }
     return out;
   }
@@ -131,20 +145,25 @@ function trFragment(text: string, depth: number): string {
   if (/^[A-Z]/.test(text)) {
     const lower = text[0].toLowerCase() + text.slice(1);
     const viaLower =
-      PHRASES_ES[lower] !== undefined ? PHRASES_ES[lower] : depth < 4 ? trFragment(lower, depth + 1) : lower;
+      PHRASES_ES[lower] !== undefined ? PHRASES_ES[lower] : depth < 4 ? trFragment(lower, depth + 1, g) : lower;
     if (viaLower !== lower) return viaLower.charAt(0).toUpperCase() + viaLower.slice(1);
   }
 
   return text;
 }
 
-/** translate one line of sim-generated prose; returns the input untouched in English mode */
-export function tr(text: string): string {
+/**
+ * translate one line of sim-generated prose; returns the input untouched in
+ * English mode. Pass the subject's gender where known (a person's own sheet)
+ * so participles and adjectives agree.
+ */
+export function tr(text: string, g?: Gender): string {
   if (lang === 'en' || !text) return text;
-  const hit = trCache.get(text);
+  const key = g === 'f' ? `♀${text}` : text;
+  const hit = trCache.get(key);
   if (hit !== undefined) return hit;
-  const out = contract(trFragment(text, 0));
+  const out = contract(trFragment(text, 0, g));
   if (trCache.size > 6000) trCache.clear();
-  trCache.set(text, out);
+  trCache.set(key, out);
   return out;
 }
